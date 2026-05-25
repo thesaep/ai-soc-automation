@@ -11,31 +11,30 @@ load_dotenv()
 def send_email_alert(events, ai_analyses):
     """
     Yüksek riskli olaylar için email bildirimi gönderir.
-    events: Splunk'tan gelen olay listesi
-    ai_analyses: Claude'dan gelen analiz metinleri
+    Sadece CRITICAL ve HIGH risklerde tetiklenir.
     """
-    # Sadece CRITICAL ve HIGH riskleri emaille bildir
-    high_risk_events = [e for e in events if e.get('risk') in ['CRITICAL', 'HIGH']]
+    # events ve ai_analyses paralel listeler, zip ile beraber filtrele
+    high_risk_pairs = [
+        (e, a) for e, a in zip(events, ai_analyses) 
+        if e.get('risk') in ['CRITICAL', 'HIGH']
+    ]
     
-    if not high_risk_events:
-        print("[*] Email gönderilmedi: CRITICAL/HIGH riskli olay yok")
+    if not high_risk_pairs:
         return
 
-    # Email içeriğini oluştur
-    subject = f"🚨 SOC ALERT: {len(high_risk_events)} Yüksek Riskli Olay Tespit Edildi"
+    subject = f"🚨 SOC ALERT: {len(high_risk_pairs)} Yüksek Riskli Olay Tespit Edildi"
     
     body = f"""
 SOC OTOMATİK UYARI SİSTEMİ
 Tarih: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}
-Toplam Yüksek Riskli Olay: {len(high_risk_events)}
+Toplam Yüksek Riskli Olay: {len(high_risk_pairs)}
 
 {'='*60}
 OLAY DETAYLARI
 {'='*60}
 """
     
-    for i, event in enumerate(high_risk_events):
-        analysis = ai_analyses[i] if i < len(ai_analyses) else "Analiz mevcut değil"
+    for i, (event, analysis) in enumerate(high_risk_pairs):
         body += f"""
 [{event.get('risk')}] OLAY #{i+1}
 Kullanıcı    : {event.get('user', '-')}
@@ -50,7 +49,6 @@ AI ANALİZİ:
 {'-'*60}
 """
 
-    # Email gönder
     try:
         msg = MIMEMultipart()
         msg['From'] = os.getenv("EMAIL_SENDER")
@@ -58,38 +56,30 @@ AI ANALİZİ:
         msg['Subject'] = subject
         msg.attach(MIMEText(body, 'plain', 'utf-8'))
 
-        # Gmail SMTP sunucusuna bağlan
         with smtplib.SMTP_SSL('smtp.gmail.com', 465) as server:
             server.login(
                 os.getenv("EMAIL_SENDER"),
                 os.getenv("EMAIL_PASSWORD")
             )
             server.send_message(msg)
-        
-        print(f"[+] Email gönderildi: {os.getenv('EMAIL_RECEIVER')}")
     
     except Exception as e:
-        print(f"[-] Email gönderilemedi: {e}")
+        print(f"\n  [-] Email gönderilemedi: {e}")
 
 def log_incident(events, ai_analyses):
     """
     Olayları JSON formatında log dosyasına kaydeder.
-    Her çalıştırmada yeni kayıt eklenir, eskiler silinmez.
     """
     log_file = "logs/incidents.json"
     os.makedirs("logs", exist_ok=True)
-    # logs klasörü yoksa oluştur
 
-    # Mevcut logları oku
     try:
         with open(log_file, "r") as f:
             existing_logs = json.load(f)
     except (FileNotFoundError, json.JSONDecodeError):
         existing_logs = []
-    # Dosya yoksa veya bozuksa boş liste ile başla
 
-    # Yeni olayları ekle
-    for i, event in enumerate(events):
+    for event, analysis in zip(events, ai_analyses):
         incident = {
             "timestamp": datetime.now().isoformat(),
             "user": event.get('user', '-'),
@@ -98,17 +88,12 @@ def log_incident(events, ai_analyses):
             "failures": event.get('failures', '0'),
             "successes": event.get('successes', '0'),
             "risk": event.get('risk', '-'),
-            "ai_analysis": ai_analyses[i] if i < len(ai_analyses) else None
+            "ai_analysis": analysis
         }
         existing_logs.append(incident)
 
-    # Güncel listeyi dosyaya yaz
     with open(log_file, "w") as f:
         json.dump(existing_logs, f, ensure_ascii=False, indent=2)
-    # ensure_ascii=False → Türkçe karakterler bozulmasın
-    # indent=2 → Okunabilir formatta kaydet
-
-    print(f"[+] {len(events)} olay loglandı: {log_file}")
 
 if __name__ == "__main__":
     from splunk_connector import connect_splunk, get_brute_force_events
@@ -119,13 +104,8 @@ if __name__ == "__main__":
         events = get_brute_force_events(service, threshold=5)
         
         if events:
-            # AI analizi yap ve sonuçları topla
             ai_analyses = analyze_with_claude(events, return_results=True)
-            
-            # Olayları logla
             log_incident(events, ai_analyses)
-            
-            # Yüksek riskli olaylar için email gönder
             send_email_alert(events, ai_analyses)
         else:
-            print("[*] Şüpheli olay bulunamadı")
+            print("\n  [*] Şüpheli olay bulunamadı")
