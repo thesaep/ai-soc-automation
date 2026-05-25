@@ -6,9 +6,14 @@ search index=main source="WinEventLog:Security"
 | bucket _time span=1h
 | stats count(eval(action="failure")) as failures,
         count(eval(action="success")) as successes by _time, user, host, src_ip
-| where failures > {threshold}
-| eval risk=case(failures>20 AND successes>0, "CRITICAL",
-                 failures>20, "HIGH",
-                 failures>5 AND successes>0, "MEDIUM",
-                 true(), "LOW")
+| where failures >= {threshold}
+| eval risk=case(
+    failures>=20 AND successes>0, "CRITICAL",
+    failures>=20, "HIGH",
+    failures>=10 AND successes>0, "HIGH",
+    failures>=10, "MEDIUM",
+    failures>=5 AND successes>0, "MEDIUM",
+    failures>=5, "LOW",
+    true(), "INFO"
+)
 | sort -failures
