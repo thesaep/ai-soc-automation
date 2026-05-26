@@ -1,126 +1,118 @@
 # AI-Powered SOC Automation Platform
 
-Splunk, Python ve Claude AI kullanarak geliştirilmiş modüler bir SOC otomasyon platformu. Brute force(şuanlık sadece brute force, ileride kapsam daha da genişletilecektir) saldırılarını otomatik tespit eder, AI ile analiz eder ve email ile bildirim gönderir.
+A modular SOC automation platform built with Splunk, Python, and Claude AI. Automatically detects brute force attacks(for now, it's just brute force; the scope will be expanded further in the future), analyzes them with AI, and triggers email notifications.
 
-## Mimari
+## Architecture
 
-Windows Host (Log Kaynağı)
+Windows Host (Log Source)
 ↓ Universal Forwarder
 Ubuntu VM (Splunk Enterprise)
 ↓ REST API
-Python (Anomali Tespiti)
+Python (Anomaly Detection)
 ↓ Claude API
-AI Analiz + SOAR Playbook
+AI Analysis + SOAR Playbook
 ↓
-Email Bildirimi + Incident Log
+Email Notification + Incident Log
 
-## Özellikler
+## Features
 
-- **Brute Force Detection** — Splunk SPL ile gelişmiş tespit kuralları
-- **Risk Skorlama** — CRITICAL / HIGH / MEDIUM / LOW seviyeleri
-- **AI Analiz** — Claude Sonnet ile false positive filtreleme
-- **Otomatik Email Bildirimi** — Yüksek riskli olaylar için
-- **Incident Log Sistemi** — JSON formatında kalıcı kayıt
-- **Multi-Value Field Handling** — Windows Türkçe lokalizasyon desteği
-- **Makine Hesabı Filtreleme** — False positive azaltma
+- **Brute Force Detection** — Advanced detection rules with custom SPL
+- **Risk Scoring** — CRITICAL / HIGH / MEDIUM / LOW severity levels
+- **AI Analysis** — False positive filtering with Claude Sonnet
+- **Automated Email Alerts** — For high-severity incidents
+- **Incident Logging** — Persistent JSON-based audit trail
+- **Multi-Value Field Handling** — Localization-aware (supports non-English Windows logs)
+- **Machine Account Filtering** — Reduces false positives
 
 ## Tech Stack
 
-| Bileşen | Teknoloji |
-|---------|-----------|
+| Component | Technology |
+|-----------|------------|
 | SIEM | Splunk Enterprise 9.3 |
 | Backend | Python 3.10 |
 | AI | Claude Sonnet 4.6 (Anthropic) |
-| OS (Sunucu) | Ubuntu Server 22.04 |
-| OS (Endpoint) | Windows 10/11 |
+| Server OS | Ubuntu Server 22.04 |
+| Endpoint OS | Windows 10/11 |
 | Log Forwarder | Splunk Universal Forwarder |
 
-## Ekran Görüntüleri
+## Screenshots
 
 ### Splunk Dashboard — Brute Force Detection
 ![Dashboard](screenshots/Dashboard.png)
 
-Tüm risk seviyelerinde brute force aktivitesini gösteren ana dashboard. CRITICAL ve HIGH riskli olaylar üst sıralarda görünür.
+Main dashboard showing brute force activity across all risk levels. CRITICAL and HIGH severity events appear at the top.
 
-### Alert Kuralı
+### Alert Rule
 ![Alert](screenshots/Alerts.png)
 
-CRITICAL ve HIGH seviyedeki olayları yakalayan, her 5 dakikada bir çalışan otomatik alert.
+Automated alert running every 5 minutes, capturing CRITICAL and HIGH severity events.
 
-### Python SOAR Playbook — CRITICAL Olay Analizi
+### Python SOAR Playbook — CRITICAL Event Analysis
 ![SOAR Critical](screenshots/soar_playbook_1.png)
 
-Claude AI'ın CRITICAL seviyedeki olayı analiz ettiği ve email bildiriminin tetiklendiği örnek.
+Claude AI analyzing a CRITICAL severity event and triggering the email notification flow.
 
-### Python SOAR Playbook — HIGH Olay Analizi
+### Python SOAR Playbook — HIGH Event Analysis
 ![SOAR High](screenshots/soar_playbook_2.png)
 ![SOAR High 2](screenshots/soar_playbook_3.png)
 
-35 ve 25 başarısız giriş içeren HIGH seviyedeki brute force olaylarının analizi.
+Analysis of HIGH severity brute force events with 35 and 25 failed login attempts.
 
-### Python SOAR Playbook — LOW Olay Analizi
+### Python SOAR Playbook — LOW Event Analysis
 ![SOAR Low](screenshots/soar_playbook_4.png)
 ![SOAR Low 2](screenshots/soar_playbook_5.png)
 ![SOAR Low 3](screenshots/soar_playbook_6.png)
 
-Düşük riskli olaylar için sistem sadece loglar, email göndermez. AI false positive ihtimalini değerlendirir.
+Low-severity events are logged only — no email is sent. AI evaluates the likelihood of false positives.
 
-### Email Bildirimi
+### Email Notification
 ![Email 1](screenshots/mail_bildirimi_1.png)
 ![Email 2](screenshots/mail_bildirimi_2.png)
 ![Email 3](screenshots/mail_bildirimi_3.png)
 
-CRITICAL ve HIGH seviyeli olaylar için otomatik gönderilen detaylı email bildirimi. AI analizi de email içeriğine dahil edilir.
+Detailed automated email notifications sent for CRITICAL and HIGH severity events. AI analysis is included in the email body.
 
-### Incident Log Dosyası
+### Incident Log File
 ![JSON 1](screenshots/json_1.png)
 ![JSON 2](screenshots/json_2.png)
 
-Tüm tespit edilen olaylar zaman damgalı olarak `logs/incidents.json` dosyasında saklanır. AI analizi de log'a dahildir.
+All detected events are stored with timestamps in `logs/incidents.json`. AI analysis is also included in the log.
 
-## Risk Skorlama Mantığı
+## Risk Scoring Logic
 
-| Risk | Koşul | Aksiyon |
-|------|-------|---------|
-| CRITICAL | 20+ failure + 1+ success | Email + Log + AI Analiz |
-| HIGH | 20+ failure (başarısız) | Email + Log + AI Analiz |
-| HIGH | 10-20 failure + success | Email + Log + AI Analiz |
-| MEDIUM | 10-20 failure | Log + AI Analiz |
-| MEDIUM | 5-10 failure + success | Log + AI Analiz |
-| LOW | 5-10 failure | Log + AI Analiz |
+| Risk | Condition | Action |
+|------|-----------|--------|
+| CRITICAL | 20+ failures + 1+ success | Email + Log + AI Analysis |
+| HIGH | 20+ failures | Email + Log + AI Analysis |
+| HIGH | 10-20 failures + success | Email + Log + AI Analysis |
+| MEDIUM | 10-20 failures | Log + AI Analysis |
+| MEDIUM | 5-10 failures + success | Log + AI Analysis |
+| LOW | 5-10 failures | Log + AI Analysis |
 
-## Kurulum
+## Installation
 
-1. `.env.example` dosyasını `.env` olarak kopyala
-2. Gerekli değerleri doldur (Splunk credentials, Anthropic API key, Email)
-3. Bağımlılıkları yükle:
+1. Copy `.env.example` to `.env`
+2. Fill in the required values (Splunk credentials, Anthropic API key, Email)
+3. Install dependencies:
 ```bash
    pip3 install -r requirements.txt
 ```
-4. Çalıştır:
+4. Run:
 ```bash
    python3 soar_playbook.py
 ```
 
-## Dosya Yapısı
+## File Structure
 ai-soc-automation/
 ├── README.md
-├── .env                       # Gizli bilgiler (gitignore'da)
+├── .env                       # Secrets (gitignored)
 ├── .gitignore
 ├── requirements.txt
-├── splunk_connector.py        # Splunk API bağlantısı
-├── ai_analyzer.py             # Claude AI tehdit analizi
+├── splunk_connector.py        # Splunk API connector
+├── ai_analyzer.py             # Claude AI threat analyzer
 ├── soar_playbook.py           # SOAR playbook (email + log)
 ├── queries/
-│   └── brute_force.spl        # SPL sorgusu (harici dosya)
+│   └── brute_force.spl        # SPL query (externalized)
 ├── logs/
-│   └── incidents.json         # Incident log dosyası
-└── screenshots/               # Proje ekran görüntüleri
-
-## Yol Haritası
-
-- [x] Faz 1 — Splunk + Python + AI + SOAR temel altyapısı
-- [ ] Faz 2 — Log Normalizasyonu ve Field Extraction
-- [ ] Faz 3 — MITRE ATT&CK Threat Hunting
-- [ ] Faz 4 — Multi-Event Korelasyon Kuralları
-- [ ] Faz 5 — Multi-Tier Splunk Mimarisi
+│   └── incidents.json         # Incident log file
+└── screenshots/               # Project screenshots
