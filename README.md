@@ -116,3 +116,8 @@ ai-soc-automation/
 ├── logs/
 │   └── incidents.json         # Incident log file
 └── screenshots/               # Project screenshots
+
+
+## License
+
+MIT
