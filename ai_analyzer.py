@@ -44,6 +44,7 @@ def print_field(label, value, label_color=Colors.CYAN, value_color=Colors.WHITE)
 def analyze_with_claude(events, return_results=False):
     """
     Brute force olaylarını Claude Sonnet'e gönderir ve analiz ettirir.
+    Tüm eventleri TEK API çağrısında batch olarak işler (token tasarrufu).
     return_results=True → analiz metinlerini liste olarak döndürür (SOAR için)
     return_results=False → sadece ekrana yazdırır
     """
@@ -52,6 +53,77 @@ def analyze_with_claude(events, return_results=False):
         return []
 
     client = anthropic.Anthropic(api_key=os.getenv("ANTHROPIC_API_KEY"))
+
+    # Tüm eventleri tek prompt'a birleştir
+    event_blocks = []
+    for i, event in enumerate(events):
+        block = f"""OLAY #{i+1}:
+- Kullanıcı: {event.get('user', '-')}
+- Domain: {event.get('domain', '-')}
+- Hedef Makine: {event.get('host', '-')}
+- Kaynak IP: {event.get('src_ip', '-')}
+- Başarısız Giriş Sayısı: {event.get('failures', '0')}
+- Başarılı Giriş Sayısı: {event.get('successes', '0')}
+- Risk Seviyesi: {event.get('risk', '-')}"""
+        event_blocks.append(block)
+
+    combined_events = "\n\n".join(event_blocks)
+
+    # Ara başlıklı, yapılandırılmış format
+    prompt = f"""Sen bir SOC (Security Operations Center) analistisin.
+Aşağıdaki {len(events)} güvenlik olayını analiz et ve değerlendir:
+
+{combined_events}
+
+HER OLAY İÇİN ŞU FORMATTA YANIT VER:
+
+OLAY #N:
+SOC ANALİZ RAPORU
+
+1. SALDIRI MI / FALSE POSITIVE MI?
+(Tek paragraf cevap, 2-3 cümle)
+
+2. RİSK CİDDİYETİ:
+(Tek paragraf cevap, 2-3 cümle)
+
+3. SOC ANALİSTİ NE YAPMALI:
+- (1. eylem önerisi)
+- (2. eylem önerisi)
+- (3. eylem önerisi)
+
+4. İÇ Mİ DIŞ TEHDİT?
+(Tek paragraf cevap, 2-3 cümle)
+
+KURALLAR:
+- Her olay "OLAY #N:" satırıyla başlamalı, sonra yukarıdaki formatta devam etmeli.
+- Markdown formatting (yıldız, tire) KULLANMA, düz metin yaz.
+- Her madde kısa ve net olsun.
+
+Şimdi {len(events)} olay için bu formatta yanıt ver."""
+
+    
+    message = client.messages.create(
+        model="claude-sonnet-4-6",
+        max_tokens=8000,   # 10 event için fazlasıyla yeterli, maliyet sadece kullanılan token'dan çıkar
+        messages=[{"role": "user", "content": prompt}]
+    )
+
+
+    raw_response = message.content[0].text
+
+    # Response'u "OLAY #N:" başlıklarına göre böl
+    import re
+    parts = re.split(r'OLAY\s*#\d+\s*:?\s*', raw_response.strip())
+    parts = [p.strip() for p in parts if p.strip()]
+
+    # Parse başarısızsa fallback
+    if len(parts) != len(events):
+        print(f"\n{Colors.YELLOW}  ⚠  Parse uyarısı: {len(events)} olay beklendi, "
+              f"{len(parts)} parça bulundu.{Colors.RESET}")
+        # Eksik parçaları boş string ile tamamla
+        while len(parts) < len(events):
+            parts.append("Analiz alınamadı.")
+
     analyses = []
 
     for i, event in enumerate(events):
@@ -79,41 +151,12 @@ def analyze_with_claude(events, return_results=False):
         print_field("Başarılı Giriş :", successes, value_color=Colors.GREEN)
         print_field("Risk Seviyesi  :", f"{rc}{risk}{Colors.RESET}")
 
-        prompt = f"""
-Sen bir SOC (Security Operations Center) analistisin. 
-Aşağıdaki güvenlik olayını analiz et ve değerlendir:
+        # AI analiz çıktısı — i'inci event'in analizini al
+        analysis_text = parts[i] if i < len(parts) else "Analiz alınamadı."
 
-OLAY BİLGİLERİ:
-- Kullanıcı: {user}
-- Domain: {domain}
-- Hedef Makine: {host}
-- Kaynak IP: {src_ip}
-- Başarısız Giriş Sayısı: {failures}
-- Başarılı Giriş Sayısı: {successes}
-- Risk Seviyesi: {risk}
-
-Lütfen şunları değerlendir:
-1. Bu olay gerçek bir saldırı mı yoksa false positive mi olabilir?
-2. Risk ne kadar ciddi?
-3. SOC analisti ne yapmalı? (3 madde)
-4. Bu bir iç tehdit mi dış tehdit mi?
-
-Kısa ve net yanıt ver, maksimum 150 kelime.
-Markdown formatting kullanma, düz metin yaz.
-"""
-
-        message = client.messages.create(
-            model="claude-sonnet-4-6",
-            max_tokens=500,
-            messages=[{"role": "user", "content": prompt}]
-        )
-
-        analysis_text = message.content[0].text
-
-        # AI analiz çıktısı
         print(f"\n{Colors.BOLD}{Colors.CYAN}  AI DEĞERLENDİRMESİ{Colors.RESET}")
         print_divider(Colors.CYAN)
-        for line in analysis_text.strip().split('\n'):
+        for line in analysis_text.split('\n'):
             print(f"  {Colors.WHITE}{line}{Colors.RESET}")
 
         # Risk bazlı aksiyon mesajı
