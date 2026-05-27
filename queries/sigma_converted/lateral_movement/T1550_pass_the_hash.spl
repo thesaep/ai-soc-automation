@@ -1,0 +1,1 @@
+source="WinEventLog:Security" (EventCode=4624 SubjectUserSid="S-1-0-0" LogonType=3 LogonProcessName="NtLmSsp" KeyLength=0) OR (EventCode=4624 LogonType=9 LogonProcessName="seclogo") NOT TargetUserName="ANONYMOUS LOGON"
