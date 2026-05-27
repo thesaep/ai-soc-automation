@@ -1,9 +1,8 @@
 search index=main source="WinEventLog:Security"
-| rename "Hesap Adı" as user, "Kaynak Ağ Adresi" as src_ip
 | eval user=mvindex(user, -1)
 | eval action=case(EventCode=4625, "failure", EventCode=4624, "success")
 | where isnotnull(action) AND user!="" AND user!="*" AND NOT like(user, "%$")
-| bucket _time span=1h
+| bucket _time span=24h
 | stats count(eval(action="failure")) as failures,
         count(eval(action="success")) as successes by _time, user, host, src_ip
 | where failures >= {threshold}
