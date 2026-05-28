@@ -96,16 +96,23 @@ def log_incident(events, ai_analyses):
         json.dump(existing_logs, f, ensure_ascii=False, indent=2)
 
 if __name__ == "__main__":
-    from splunk_connector import connect_splunk, get_brute_force_events
+    from splunk_connector import connect_splunk, get_brute_force_events, get_all_mitre_events
     from ai_analyzer import analyze_with_claude
 
     service = connect_splunk()
     if service:
-        events = get_brute_force_events(service, threshold=5)
-        
-        if events:
-            ai_analyses = analyze_with_claude(events, return_results=True)
-            log_incident(events, ai_analyses)
-            send_email_alert(events, ai_analyses)
+        # Brute force detection (Faz 1)
+        bf_events = get_brute_force_events(service, threshold=5)
+
+        # MITRE ATT&CK detection (Faz 3)
+        mitre_events = get_all_mitre_events(service)
+
+        # Tüm eventleri birleştir
+        all_events = bf_events + mitre_events
+
+        if all_events:
+            ai_analyses = analyze_with_claude(all_events, return_results=True)
+            log_incident(all_events, ai_analyses)
+            send_email_alert(all_events, ai_analyses)
         else:
             print("\n  [*] Şüpheli olay bulunamadı")
