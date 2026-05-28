@@ -1,0 +1,1 @@
+source="WinEventLog:System" Provider_Name="Service Control Manager" EventCode=7045 ImagePath="*set*" ImagePath="*&&*" ImagePath IN ("*environment*", "*invoke*", "*input*")
