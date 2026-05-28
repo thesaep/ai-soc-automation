@@ -1,3 +1,39 @@
+
+import json as _json
+
+def get_mitre_context(detection_type):
+    """
+    detection_type string'inden MITRE teknik ID'sini çıkarır,
+    mitre_context.json'dan açıklama getirir.
+    """
+    try:
+        with open('mitre_context.json', 'r') as f:
+            ctx = _json.load(f)
+    except:
+        return ""
+
+    # detection_type içinde teknik ID ara
+    for key in ctx:
+        if key.lower() in detection_type.lower():
+            t = ctx[key]
+            return f"""
+MITRE ATT&CK CONTEXT:
+- Technique: {t['name']} ({key})
+- Tactic: {t['tactic']}
+- Description: {t['description']}
+- Recommended Response: {t['response']}"""
+
+    # brute force için fallback
+    if 'brute' in detection_type.lower() or 'force' not in detection_type.lower():
+        t = ctx.get('brute_force', {})
+        if t:
+            return f"""
+MITRE ATT&CK CONTEXT:
+- Technique: {t['name']}
+- Tactic: {t['tactic']}
+- Description: {t['description']}"""
+    return ""
+
 import anthropic
 from dotenv import load_dotenv
 import os
@@ -68,10 +104,19 @@ def analyze_with_claude(events, return_results=False):
         event_blocks.append(block)
 
     combined_events = "\n\n".join(event_blocks)
+# Her event'in detection_type'ından MITRE context çek
+    mitre_contexts = []
+    for event in events:
+        dt = event.get('detection_type', 'brute_force')
+        ctx = get_mitre_context(dt)
+        if ctx and ctx not in mitre_contexts:
+            mitre_contexts.append(ctx)
+    mitre_section = "\n".join(mitre_contexts) if mitre_contexts else ""
 
     # Ara başlıklı, yapılandırılmış format
     prompt = f"""Sen bir SOC (Security Operations Center) analistisin.
 Aşağıdaki {len(events)} güvenlik olayını analiz et ve değerlendir:
+{mitre_section}
 
 {combined_events}
 

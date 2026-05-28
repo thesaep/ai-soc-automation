@@ -1,0 +1,50 @@
+{
+  "T1550.002": {
+    "name": "Pass-the-Hash",
+    "tactic": "Lateral Movement",
+    "description": "Adversary captures NTLM hash and uses it to authenticate without knowing the plaintext password. Indicators: EventCode=4624, LogonType=3 or 9, LogonProcessName=NtLmSsp or seclogo, SubjectUserSid=S-1-0-0.",
+    "response": "Isolate source machine, reset compromised account password, check for lateral movement to other hosts."
+  },
+  "T1070.001": {
+    "name": "Event Log Cleared",
+    "tactic": "Defense Evasion",
+    "description": "Adversary clears Windows Security event log to remove evidence of intrusion. Indicator: EventCode=1102. This is a critical signal — legitimate users rarely clear security logs.",
+    "response": "Immediately investigate what happened before the log was cleared. Check other log sources (Sysmon, firewall). Treat as active incident."
+  },
+  "T1053.005": {
+    "name": "Suspicious Scheduled Task",
+    "tactic": "Persistence",
+    "description": "Adversary creates scheduled task in suspicious directory (Temp, AppData, Downloads) to maintain persistence. Indicator: EventCode=4698 with TaskContent pointing to unusual paths.",
+    "response": "Identify and delete the scheduled task. Investigate what the task executes. Check for other persistence mechanisms."
+  },
+  "T1078": {
+    "name": "Valid Accounts",
+    "tactic": "Initial Access / Persistence",
+    "description": "Adversary uses legitimate credentials to gain access. Subtypes: external RDP/SMB login from non-private IP, suspicious failed logon reasons (bad password after lockout), logon from unusual source.",
+    "response": "Verify with account owner if login was legitimate. If not, disable account and investigate scope of access."
+  },
+  "T1069": {
+    "name": "Permission Groups Discovery",
+    "tactic": "Discovery",
+    "description": "Adversary enumerates domain groups and permissions via LDAP queries to identify high-value targets. Indicator: EventCode=30 with LDAP SearchFilter for admin groups.",
+    "response": "Identify the source of LDAP queries. If from unexpected host/user, investigate for active intrusion."
+  },
+  "T1082": {
+    "name": "System Information Discovery",
+    "tactic": "Discovery",
+    "description": "Adversary enumerates system and network information. Indicator: EventCode=4661 with SAM_USER/SAM_GROUP object access.",
+    "response": "Correlate with other discovery events. Single occurrence may be benign, multiple events suggest active reconnaissance."
+  },
+  "T1059": {
+    "name": "Command and Scripting Interpreter",
+    "tactic": "Execution",
+    "description": "Adversary uses obfuscated scripts via mshta.exe, rundll32.exe, or stdin to execute malicious code. Indicator: EventCode=7045 with suspicious ImagePath patterns.",
+    "response": "Terminate the malicious service. Investigate what the script executed. Check for additional payloads dropped."
+  },
+  "brute_force": {
+    "name": "Brute Force",
+    "tactic": "Credential Access",
+    "description": "Adversary attempts multiple failed logins to guess credentials. High failure count followed by success indicates compromise.",
+    "response": "Lock the targeted account, investigate source IP, check if credentials were used elsewhere."
+  }
+}
