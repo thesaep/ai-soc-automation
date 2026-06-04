@@ -1,9 +1,16 @@
 import requests
 import urllib3
+import os
+from dotenv import load_dotenv
+
+# .env dosyasından değişkenleri yükle
+load_dotenv()
+
 urllib3.disable_warnings()
 
-SPLUNK_URL = "https://localhost:8089"
-AUTH = ("splunk", "splunk123")
+# Credentials .env'den okunuyor, koda yazılmıyor
+SPLUNK_URL = os.getenv("SPLUNK_URL", "https://localhost:8089")
+AUTH = (os.getenv("SPLUNK_USERNAME"), os.getenv("SPLUNK_PASSWORD"))
 
 # 6=fatal(critical), 5=severe(high), 4=error(medium), 3=warn(low)
 alerts = [
