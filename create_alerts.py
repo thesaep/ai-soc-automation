@@ -1,10 +1,16 @@
 import os
 import requests
 import urllib3
+from dotenv import load_dotenv
+
+# .env dosyasından değişkenleri yükle
+load_dotenv()
+
 urllib3.disable_warnings()
 
-SPLUNK_URL = "https://localhost:8089"
-AUTH = ("splunk", "splunk123")
+# Credentials .env'den okunuyor, koda yazılmıyor
+SPLUNK_URL = os.getenv("SPLUNK_URL", "https://localhost:8089")
+AUTH = (os.getenv("SPLUNK_USERNAME"), os.getenv("SPLUNK_PASSWORD"))
 
 alerts = [
     {
@@ -81,9 +87,11 @@ alerts = [
     },
 ]
 
+# SPL dosyalarının bulunduğu dizin
 base_path = os.path.join(os.path.dirname(__file__), "queries/sigma_converted")
 
 for alert in alerts:
+    # Her alert için ilgili SPL dosyasını oku
     spl_path = os.path.join(base_path, alert["file"])
     with open(spl_path, "r") as f:
         search = f.read().strip()
