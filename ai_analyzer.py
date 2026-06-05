@@ -1,4 +1,3 @@
-
 import json as _json
 
 def get_mitre_context(detection_type):
@@ -33,6 +32,46 @@ MITRE ATT&CK CONTEXT:
 - Tactic: {t['tactic']}
 - Description: {t['description']}"""
     return ""
+
+
+def _format_event_fields(event):
+    """
+    Event dict'inden Claude'a gönderilecek olay bilgilerini üretir.
+    Normalize edilmiş field'ları (user, host, src_ip, domain) kullanır,
+    ayrıca detection tipine özgü ham field'ları da ekler.
+    Claude'un daha fazla context görmesi için tüm anlamlı field'lar eklenir.
+    Splunk internal field'ları (_raw, _bkt vb.) ve Message (çok uzun) filtrelenir.
+    """
+    # Splunk internal ve gürültülü field'lar — prompt'a ekleme
+    skip_fields = {
+        '_raw', '_bkt', '_cd', '_indextime', '_pre_msg', '_serial',
+        '_si', '_sourcetype', '_subsecond', '_time', 'linecount',
+        'punct', 'splunk_server', 'splunk_server_group', 'index',
+        'sourcetype', 'source', 'eventtype', 'Message'
+    }
+
+    lines = []
+    # Normalize field'lar önce gelsin — en önemli bilgiler
+    priority = ['detection_type', 'risk', 'user', 'domain', 'host', 'src_ip']
+    for f in priority:
+        v = event.get(f)
+        if v and v != '-':
+            lines.append(f"- {f}: {v}")
+
+    # Kalan ham field'lar — detection'a özgü detaylar
+    for k, v in event.items():
+        if k in skip_fields or k in priority:
+            continue
+        if not k.startswith('_') and v not in (None, '', '-', [], '0'):
+            # List ise join et
+            if isinstance(v, list):
+                v = ', '.join(str(x) for x in v if x not in ('', '-', None))
+                if not v:
+                    continue
+            lines.append(f"- {k}: {v}")
+
+    return "\n".join(lines)
+
 
 import anthropic
 from dotenv import load_dotenv
@@ -79,8 +118,9 @@ def print_field(label, value, label_color=Colors.CYAN, value_color=Colors.WHITE)
 
 def analyze_with_claude(events, return_results=False):
     """
-    Brute force olaylarını Claude Sonnet'e gönderir ve analiz ettirir.
+    Güvenlik olaylarını Claude Sonnet'e gönderir ve analiz ettirir.
     Tüm eventleri TEK API çağrısında batch olarak işler (token tasarrufu).
+    Her event için normalize edilmiş + ham field'lar prompt'a eklenir.
     return_results=True → analiz metinlerini liste olarak döndürür (SOAR için)
     return_results=False → sadece ekrana yazdırır
     """
@@ -91,20 +131,16 @@ def analyze_with_claude(events, return_results=False):
     client = anthropic.Anthropic(api_key=os.getenv("ANTHROPIC_API_KEY"))
 
     # Tüm eventleri tek prompt'a birleştir
+    # Her event için normalize + ham field'lar eklenir, Claude daha fazla context görür
     event_blocks = []
     for i, event in enumerate(events):
-        block = f"""OLAY #{i+1}:
-- Kullanıcı: {event.get('user', '-')}
-- Domain: {event.get('domain', '-')}
-- Hedef Makine: {event.get('host', '-')}
-- Kaynak IP: {event.get('src_ip', '-')}
-- Başarısız Giriş Sayısı: {event.get('failures', '0')}
-- Başarılı Giriş Sayısı: {event.get('successes', '0')}
-- Risk Seviyesi: {event.get('risk', '-')}"""
+        fields = _format_event_fields(event)
+        block = f"OLAY #{i+1}:\n{fields}"
         event_blocks.append(block)
 
     combined_events = "\n\n".join(event_blocks)
-# Her event'in detection_type'ından MITRE context çek
+
+    # Her event'in detection_type'ından MITRE context çek
     mitre_contexts = []
     for event in events:
         dt = event.get('detection_type', 'brute_force')
@@ -113,7 +149,7 @@ def analyze_with_claude(events, return_results=False):
             mitre_contexts.append(ctx)
     mitre_section = "\n".join(mitre_contexts) if mitre_contexts else ""
 
-    # Ara başlıklı, yapılandırılmış format
+    # Yapılandırılmış prompt — MITRE context + tüm event field'ları Claude'a gider
     prompt = f"""Sen bir SOC (Security Operations Center) analistisin.
 Aşağıdaki {len(events)} güvenlik olayını analiz et ve değerlendir:
 {mitre_section}
@@ -143,16 +179,15 @@ KURALLAR:
 - Her olay "OLAY #N:" satırıyla başlamalı, sonra yukarıdaki formatta devam etmeli.
 - Markdown formatting (yıldız, tire) KULLANMA, düz metin yaz.
 - Her madde kısa ve net olsun.
+- Olay field'larındaki gerçek değerleri (kullanıcı adı, IP, makine adı vb.) analizde kullan.
 
 Şimdi {len(events)} olay için bu formatta yanıt ver."""
 
-    
     message = client.messages.create(
         model="claude-sonnet-4-6",
-        max_tokens=8000,   # 10 event için fazlasıyla yeterli, maliyet sadece kullanılan token'dan çıkar
+        max_tokens=8000,
         messages=[{"role": "user", "content": prompt}]
     )
-
 
     raw_response = message.content[0].text
 
@@ -165,38 +200,46 @@ KURALLAR:
     if len(parts) != len(events):
         print(f"\n{Colors.YELLOW}  ⚠  Parse uyarısı: {len(events)} olay beklendi, "
               f"{len(parts)} parça bulundu.{Colors.RESET}")
-        # Eksik parçaları boş string ile tamamla
         while len(parts) < len(events):
             parts.append("Analiz alınamadı.")
 
     analyses = []
 
     for i, event in enumerate(events):
+        # Normalize field'lardan al — boşsa ham field'lara bak
         user      = event.get('user', '-')
-        failures  = event.get('failures', '0')
-        successes = event.get('successes', '0')
         src_ip    = event.get('src_ip', '-')
         host      = event.get('host', '-')
         risk      = event.get('risk', '-')
         domain    = event.get('domain', '-')
+        det_type  = event.get('detection_type', '-')
+        # Brute force'a özgü field'lar (MITRE eventlerde olmayabilir, '-' döner)
+        failures  = event.get('failures', '-')
+        successes = event.get('successes', '-')
 
         rc = risk_color(risk)
 
-        # Olay başlığı
-        print_header(f"AI ANALİZİ  #{i+1}  |  Kullanıcı: {user}  |  Risk: {risk}", rc)
+        # Olay başlığı — detection tipi + kullanıcı + risk
+        print_header(
+            f"AI ANALİZİ  #{i+1}  |  {det_type}  |  Risk: {risk}", rc
+        )
 
         # Olay detayları
         print(f"\n{Colors.BOLD}{Colors.BLUE}  OLAY BİLGİLERİ{Colors.RESET}")
         print_divider(Colors.BLUE)
+        print_field("Detection     :", det_type)
         print_field("Kullanıcı     :", user)
         print_field("Domain        :", domain)
         print_field("Hedef Makine  :", host)
         print_field("Kaynak IP     :", src_ip)
-        print_field("Başarısız Giriş:", failures, value_color=Colors.RED)
-        print_field("Başarılı Giriş :", successes, value_color=Colors.GREEN)
+        # Brute force field'ları varsa göster
+        if failures != '-':
+            print_field("Başarısız Giriş:", failures, value_color=Colors.RED)
+        if successes != '-':
+            print_field("Başarılı Giriş :", successes, value_color=Colors.GREEN)
         print_field("Risk Seviyesi  :", f"{rc}{risk}{Colors.RESET}")
 
-        # AI analiz çıktısı — i'inci event'in analizini al
+        # AI analiz çıktısı
         analysis_text = parts[i] if i < len(parts) else "Analiz alınamadı."
 
         print(f"\n{Colors.BOLD}{Colors.CYAN}  AI DEĞERLENDİRMESİ{Colors.RESET}")

@@ -40,6 +40,52 @@ def load_query(query_file, threshold=5):
         print(f"[-] Sorgu dosyası bulunamadı: {query_file}")
         return None
 
+
+def _mv_last(value):
+    """
+    Splunk bazı field'ları çok-değerli (list) döndürür (örn. Account_Name).
+    Bu helper, list ise boş olmayan son elemanı döndürür — mvindex(user,-1) pattern'iyle uyumlu.
+    List değilse değeri olduğu gibi döndürür, boşsa '-' verir.
+    """
+    if isinstance(value, list):
+        non_empty = [v for v in value if v not in ("", "-", None)]
+        return non_empty[-1] if non_empty else "-"
+    return value if value not in ("", None) else "-"
+
+
+def normalize_event(event):
+    """
+    Splunk'ın döndürdüğü farklı field adlarını ortak şemaya map eder.
+    Örn: İngilizce Windows 'Account_Name' → 'user', 'ComputerName' → 'host'.
+    Orijinal field'lar korunur, üzerine normalize edilmiş alias eklenir.
+    Böylece downstream kod (ai_analyzer, soar_playbook) tek bir şema kullanır.
+    """
+    # Ortak şema → bu field aday listesinden ilk dolu olanı alır
+    field_map = {
+        "user":   ["Account_Name", "user", "TargetUserName", "Network_Account_Name"],
+        "domain": ["Account_Domain", "domain", "TargetDomainName", "Network_Account_Domain"],
+        "host":   ["ComputerName", "host"],
+        "src_ip": ["Source_Network_Address", "src_ip", "IpAddress"],
+    }
+
+    for norm_key, candidates in field_map.items():
+        # Event'te zaten anlamlı bir değer varsa dokunma
+        if event.get(norm_key) not in (None, "", "-"):
+            continue
+        # Aday field'ları sırayla dene
+        found = False
+        for cand in candidates:
+            if cand in event:
+                event[norm_key] = _mv_last(event[cand])
+                found = True
+                break
+        # Hiçbiri yoksa '-' ata (downstream kod KeyError almasın)
+        if not found:
+            event[norm_key] = "-"
+
+    return event
+
+
 def get_brute_force_events(service, threshold=5, query_file="queries/brute_force.spl"):
     """
     Brute force olaylarını Splunk'tan çeker.
@@ -108,11 +154,12 @@ if __name__ == "__main__":
         print_events(events)
 
 
-def get_mitre_events(service, detection_name, spl_file, earliest="-5m"):
+def get_mitre_events(service, detection_name, spl_file, severity="HIGH", earliest="-5m"):
     """
     Herhangi bir MITRE ATT&CK detection kuralını çalıştırır.
     detection_name : alert adı (log ve AI analizi için)
     spl_file       : queries/sigma_converted/ altındaki .spl dosyası
+    severity       : bu detection'ın risk seviyesi (CRITICAL/HIGH/MEDIUM)
     earliest       : ne kadar geriye bakılsın
     """
     spl_query = load_query(spl_file)
@@ -136,7 +183,10 @@ def get_mitre_events(service, detection_name, spl_file, earliest="-5m"):
             if isinstance(result, dict):
                 # Her event'e detection tipi ekle — AI analizi için gerekli
                 result['detection_type'] = detection_name
-                result['risk'] = result.get('risk', 'HIGH')
+                # Risk artık detection'a özgü severity'den geliyor (hardcode HIGH değil)
+                result['risk'] = severity
+                # Field adlarını ortak şemaya normalize et (Account_Name → user vb.)
+                result = normalize_event(result)
                 events.append(result)
 
         if events:
@@ -152,38 +202,40 @@ def get_all_mitre_events(service, earliest="-5m"):
     """
     Tüm MITRE detection kurallarını çalıştırır, sonuçları birleştirir.
     Yeni kural eklemek için sadece bu listeye satır ekle.
+    Her satır: (detection_name, spl_file, severity)
     """
     detections = [
-        # (detection_name, spl_file)
+        # (detection_name, spl_file, severity)
         ("T1550.002 Pass-the-Hash",
-         "queries/sigma_converted/lateral_movement/T1550_pass_the_hash.spl"),
+         "queries/sigma_converted/lateral_movement/T1550_pass_the_hash.spl", "CRITICAL"),
         ("T1070.001 Event Log Cleared",
-         "queries/sigma_converted/defense_evasion/T1070_event_log_cleared.spl"),
+         "queries/sigma_converted/defense_evasion/T1070_event_log_cleared.spl", "CRITICAL"),
         ("T1053.005 Suspicious Scheduled Task",
-         "queries/sigma_converted/persistence/T1053_scheduled_task.spl"),
+         "queries/sigma_converted/persistence/T1053_scheduled_task.spl", "HIGH"),
         ("T1078 External RDP Login",
-         "queries/sigma_converted/initial_access/T1078_external_rdp_login.spl"),
+         "queries/sigma_converted/initial_access/T1078_external_rdp_login.spl", "HIGH"),
         ("T1078 External SMB Login",
-         "queries/sigma_converted/initial_access/T1078_external_smb_login.spl"),
+         "queries/sigma_converted/initial_access/T1078_external_smb_login.spl", "HIGH"),
         ("T1078 Suspicious Failed Logon Reasons",
-         "queries/sigma_converted/initial_access/T1078_susp_failed_logon_reasons.spl"),
+         "queries/sigma_converted/initial_access/T1078_susp_failed_logon_reasons.spl", "MEDIUM"),
         ("T1078 Suspicious Failed Logon Source",
-         "queries/sigma_converted/initial_access/T1078_susp_failed_logon_source.spl"),
+         "queries/sigma_converted/initial_access/T1078_susp_failed_logon_source.spl", "MEDIUM"),
         ("T1069 LDAP Recon",
-         "queries/sigma_converted/discovery/T1069_ldap_recon.spl"),
+         "queries/sigma_converted/discovery/T1069_ldap_recon.spl", "MEDIUM"),
         ("T1082 Network Recon",
-         "queries/sigma_converted/discovery/T1082_net_recon.spl"),
+         "queries/sigma_converted/discovery/T1082_net_recon.spl", "MEDIUM"),
         ("T1059 Obfuscation via MSHTA",
-         "queries/sigma_converted/execution/T1059_obfuscation_mshta.spl"),
+         "queries/sigma_converted/execution/T1059_obfuscation_mshta.spl", "HIGH"),
         ("T1059 Obfuscation via Rundll32",
-         "queries/sigma_converted/execution/T1059_obfuscation_rundll32.spl"),
+         "queries/sigma_converted/execution/T1059_obfuscation_rundll32.spl", "HIGH"),
         ("T1059 Obfuscation via Stdin",
-         "queries/sigma_converted/execution/T1059_obfuscation_stdin.spl"),
+         "queries/sigma_converted/execution/T1059_obfuscation_stdin.spl", "HIGH"),
     ]
 
     all_events = []
-    for detection_name, spl_file in detections:
-        events = get_mitre_events(service, detection_name, spl_file, earliest=earliest)
+    for detection_name, spl_file, severity in detections:
+        events = get_mitre_events(service, detection_name, spl_file,
+                                  severity=severity, earliest=earliest)
         all_events.extend(events)
 
     print(f"\n[+] Toplam {len(all_events)} MITRE event bulundu")
