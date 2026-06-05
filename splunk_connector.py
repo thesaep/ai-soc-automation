@@ -148,7 +148,7 @@ def get_mitre_events(service, detection_name, spl_file, earliest="-5m"):
         return []
 
 
-def get_all_mitre_events(service):
+def get_all_mitre_events(service, earliest="-5m"):
     """
     Tüm MITRE detection kurallarını çalıştırır, sonuçları birleştirir.
     Yeni kural eklemek için sadece bu listeye satır ekle.
@@ -183,7 +183,7 @@ def get_all_mitre_events(service):
 
     all_events = []
     for detection_name, spl_file in detections:
-        events = get_mitre_events(service, detection_name, spl_file)
+        events = get_mitre_events(service, detection_name, spl_file, earliest=earliest)
         all_events.extend(events)
 
     print(f"\n[+] Toplam {len(all_events)} MITRE event bulundu")
