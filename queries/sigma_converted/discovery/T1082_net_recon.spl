@@ -1,1 +1,1 @@
-source="WinEventLog:Security" EventCode=4661 AccessMask="0x2d" ObjectType IN ("SAM_USER", "SAM_GROUP") ObjectName="S-1-5-21-*" ObjectName IN ("*-500", "*-512")
+source="WinEventLog:Security" EventCode=4661 AccessMask="0x2d" ObjectType IN ("SAM_USER", "SAM_GROUP") ObjectName="S-1-5-21-*" ObjectName IN ("*-500", "*-512") | table Account_Name,Account_Domain,Security_ID,ObjectName,ObjectType,AccessMask,ComputerName

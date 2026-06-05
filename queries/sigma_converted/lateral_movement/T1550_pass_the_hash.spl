@@ -1,1 +1,1 @@
-source="WinEventLog:Security" (EventCode=4624 Security_ID="S-1-0-0" Logon_Type=3 Logon_Process="NtLmSsp" Key_Length=0) OR (EventCode=4624 Logon_Type=9 Logon_Process="seclogo") NOT Account_Name="ANONYMOUS LOGON"
+source="WinEventLog:Security" (EventCode=4624 Security_ID="S-1-0-0" Logon_Type=3 Logon_Process="NtLmSsp" Key_Length=0) OR (EventCode=4624 Logon_Type=9 Logon_Process="seclogo") NOT Account_Name="ANONYMOUS LOGON" | table Account_Name,Account_Domain,Security_ID,Logon_Type,Logon_Process,Key_Length,Source_Network_Address,ComputerName
