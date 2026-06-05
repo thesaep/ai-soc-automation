@@ -1,1 +1,1 @@
-source="WinEventLog:Security" EventCode IN (4625, 4776) Status IN ("0xC0000072", "0xC000006F", "0xC0000070", "0xC0000413", "0xC000018C", "0xC000015B") OR SubStatus IN ("0xC0000072", "0xC000006F", "0xC0000070", "0xC0000413", "0xC000018C", "0xC000015B") NOT SubjectUserSid="S-1-0-0"
+source="WinEventLog:Security" EventCode IN (4625, 4776) (Status IN ("0xC0000072", "0xC000006F", "0xC0000070", "0xC0000413", "0xC000018C", "0xC000015B") OR Sub_Status IN ("0xC0000072", "0xC000006F", "0xC0000070", "0xC0000413", "0xC000018C", "0xC000015B")) NOT Security_ID="S-1-0-0"
