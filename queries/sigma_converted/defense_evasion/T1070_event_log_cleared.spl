@@ -1,1 +1,1 @@
-source="WinEventLog:Security" EventCode=1102 Provider_Name="Microsoft-Windows-Eventlog" | table SubjectLogonId,SubjectUserName,SubjectUserSid,SubjectDomainName
+source="WinEventLog:Security" EventCode=1102 | table Account_Name,Account_Domain,Security_ID,Logon_ID,ComputerName
