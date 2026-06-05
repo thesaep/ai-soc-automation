@@ -117,10 +117,29 @@ for alert in alerts:
         verify=False
     )
 
+    
     if resp.status_code in (200, 201):
         print(f"[+] Olusturuldu: {alert['name']}")
     elif resp.status_code == 409:
-        print(f"[~] Zaten var: {alert['name']}")
+        # Alert zaten var, sil ve yeniden oluştur
+        del_resp = requests.delete(
+            f"{SPLUNK_URL}/servicesNS/splunk/search/saved/searches/{requests.utils.quote(alert['name'])}",
+            auth=AUTH,
+            verify=False
+        )
+        if del_resp.status_code == 200:
+            # Yeniden oluştur
+            resp2 = requests.post(
+                f"{SPLUNK_URL}/servicesNS/splunk/search/saved/searches",
+                auth=AUTH,
+                data=data,
+                verify=False
+            )
+            if resp2.status_code in (200, 201):
+                print(f"[~] Guncellendi: {alert['name']}")
+            else:
+                print(f"[!] Yeniden olusturma hatasi ({resp2.status_code}): {alert['name']} — {resp2.text[:100]}")
+        else:
+            print(f"[!] Silme hatasi ({del_resp.status_code}): {alert['name']}")
     else:
         print(f"[!] Hata ({resp.status_code}): {alert['name']} — {resp.text[:100]}")
-
