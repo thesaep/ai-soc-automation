@@ -88,7 +88,7 @@ Email Notification + JSON Incident Log
 ## Screenshots
 
 ### SOAR Pipeline — Multi-Detection Analysis
-![SOAR Pipeline](screenshots/soar_pipeline.png)
+![SOAR Pipeline](screenshots/soar_pipeline1.png)
 The orchestration layer runs all 12 MITRE detections, normalizes the results into a single schema, and sends each to Claude AI. Severity banners (CRITICAL / HIGH) drive the response actions.
 
 ### MITRE ATT&CK Alerts in Splunk
