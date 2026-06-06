@@ -251,16 +251,6 @@ ai-soc-automation/
 
 ---
 
-## Roadmap
-
-- [x] **Phase 1** — Brute-force detection + risk scoring + AI triage + SOAR
-- [x] **Phase 2** — Log normalization + 12 MITRE ATT&CK detections + test lab + AI context injection
-- [ ] **Phase 3** — Multi-event correlation & kill-chain detection
-- [ ] **Phase 4** — Multi-tier Splunk architecture (dedicated indexer + search head)
-- [ ] **Phase 5** — IOC enrichment (AbuseIPDB, OTX) + dynamic playbooks
-
----
-
 ## License
 
 MIT
