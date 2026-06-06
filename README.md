@@ -100,10 +100,12 @@ All 12 detections registered as scheduled alerts (every 5 minutes), with per-tec
 
 ### Claude AI — Attack-Chain Analysis
 ![AI Analysis](screenshots/ai_analysis.png) 
+
 Claude analyzes each event with injected MITRE context and connects related events — e.g. linking a Pass-the-Hash, a log-clear, and two scheduled tasks as a single coordinated intrusion.
 
 ### Attack Simulation — Atomic Red Team
 ![Atomic Red Team](screenshots/atomic_red_team.png) 
+
 Techniques simulated with Atomic Red Team and validated against the resulting Sysmon/Security telemetry in Splunk.
 
 ### Splunk Dashboard — Brute Force Detection
