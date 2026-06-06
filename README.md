@@ -89,6 +89,9 @@ Email Notification + JSON Incident Log
 
 ### SOAR Pipeline — Multi-Detection Analysis
 ![SOAR Pipeline](screenshots/soar_pipeline1.png)
+![SOAR Pipeline](screenshots/soar_pipeline2.png)
+![SOAR Pipeline](screenshots/soar_pipeline3.png)
+![SOAR Pipeline](screenshots/soar_pipeline4.png)
 The orchestration layer runs all 12 MITRE detections, normalizes the results into a single schema, and sends each to Claude AI. Severity banners (CRITICAL / HIGH) drive the response actions.
 
 ### MITRE ATT&CK Alerts in Splunk
@@ -104,11 +107,14 @@ Claude analyzes each event with injected MITRE context and connects related even
 Techniques simulated with Atomic Red Team and validated against the resulting Sysmon/Security telemetry in Splunk.
 
 ### Splunk Dashboard — Brute Force Detection
-![Dashboard](screenshots/dashboard.png)
+![Dashboard](screenshots/Bruteforce_dashboard.png)
 Phase 1 dashboard showing brute force activity across all risk levels. CRITICAL and HIGH severity events appear at the top.
 
 ### Email Notification
-![Email](screenshots/email.png)
+![Email](screenshots/email1.png)
+![Email](screenshots/email2.png)
+![Email](screenshots/email3.png)
+![Email](screenshots/email4.png)
 Detailed automated email notifications sent for CRITICAL and HIGH severity events. AI analysis is included in the email body.
 
 ### Incident Log File
