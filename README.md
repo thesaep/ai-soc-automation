@@ -17,13 +17,13 @@ Built in public as a detection-engineering portfolio project. Each phase is docu
 Windows VM (Log Source: Security/System/Application + Sysmon)
         │
         ▼
-Universal Forwarder ──► Splunk (index-time field normalization)
+Universal Forwarder ──► Ubuntu VM (Splunk Enterprise — index-time field normalization)
         │
         ▼
-Python (12 MITRE ATT&CK detections + event normalization)
+REST API ──► Python (12 MITRE ATT&CK detections + event normalization)
         │
         ▼
-Claude AI (per-technique MITRE context injection + threat analysis)
+Claude API ──► Claude AI Analysis (per-technique MITRE context injection) + SOAR Playbook(threat analysis)
         │
         ▼
 Email Notification + JSON Incident Log
@@ -71,17 +71,6 @@ Email Notification + JSON Incident Log
 ---
 =======
 Phase 1 detected brute force only. Phase 2 added index-time log normalization and a 12-rule MITRE ATT&CK detection engine, validated in a dedicated attack-simulation lab.
-
-## Architecture
-Windows VM (Log Source: Security/System/Application + Sysmon)
-        ↓ Universal Forwarder
-Ubuntu VM (Splunk Enterprise — index-time field normalization)
-        ↓ REST API
-Python (12 MITRE ATT&CK detections + event normalization)
-        ↓ Claude API
-AI Analysis (per-technique MITRE context injection) + SOAR Playbook
-        ↓
-Email Notification + Incident Log
 
 ## Tech Stack
 
