@@ -1,5 +1,8 @@
 # AI-Powered SOC Automation Platform
+A modular SOC automation platform built with Splunk, Python, and Claude AI. Detects threats mapped to MITRE ATT&CK, analyzes them with an AI SOC analyst, and triggers automated incident response — end to end.
+Built in public as a detection-engineering portfolio project. Each phase is documented on Medium.
 
+<<<<<<< HEAD
 A modular SOC automation platform built with Splunk, Python, and Claude AI. Detects threats mapped to **MITRE ATT&CK**, analyzes them with an AI SOC analyst, and triggers automated incident response — end to end.
 
 Built in public as a detection-engineering portfolio project. Each phase is documented on [Medium](https://erensaylan.medium.com/).
@@ -66,6 +69,49 @@ Email Notification + JSON Incident Log
 > **Requires DC** = needs a Domain Controller to generate the relevant events.
 
 ---
+=======
+Phase 1 detected brute force only. Phase 2 added index-time log normalization and a 12-rule MITRE ATT&CK detection engine, validated in a dedicated attack-simulation lab.
+
+## Architecture
+Windows VM (Log Source: Security/System/Application + Sysmon)
+        ↓ Universal Forwarder
+Ubuntu VM (Splunk Enterprise — index-time field normalization)
+        ↓ REST API
+Python (12 MITRE ATT&CK detections + event normalization)
+        ↓ Claude API
+AI Analysis (per-technique MITRE context injection) + SOAR Playbook
+        ↓
+Email Notification + Incident Log
+
+## Features
+
+**MITRE ATT&CK Detection Engine** — 12 detections across 6 tactics, converted from Sigma rules to SPL
+**Brute Force Detection** — advanced detection rules with custom SPL (Phase 1)
+**Risk Scoring** — CRITICAL / HIGH / MEDIUM / LOW severity levels
+**Index-Time Log Normalization** — field extraction handled in Splunk props.conf (no per-query rename)
+**AI Analysis** — Claude evaluates each event with injected MITRE context and connects related events into attack chains
+**Automated Alert Management** — create_alerts.py creates/updates all Splunk alerts via REST API (idempotent upsert)
+**Automated Email Alerts** — for high-severity incidents
+**Incident Logging** — persistent JSON-based audit trail
+**Multi-Value Field Handling** — localization-aware (supports non-English Windows logs)
+**Machine Account Filtering** — reduces false positives
+**Attack-Simulation Lab** — detections validated with Atomic Red Team + Sysmon telemetry
+
+MITRE ATT&CK Coverage
+TacticTechniqueSeverityValidationDefense EvasionT1070.001 — Clear Event Logs🔴 CRITICAL✅ LabLateral MovementT1550.002 — Pass-the-Hash🔴 CRITICAL✅ LabPersistenceT1053.005 — Scheduled Task🟠 HIGH✅ LabExecutionT1059 — Obfuscation via MSHTA🟠 HIGHPatternExecutionT1059 — Obfuscation via Rundll32🟠 HIGHPatternExecutionT1059 — Obfuscation via Stdin🟠 HIGHPatternInitial AccessT1078 — External RDP Login🟠 HIGHPatternInitial AccessT1078 — External SMB Login🟠 HIGHPatternInitial AccessT1078 — Suspicious Failed Logon Reasons🟡 MEDIUMPatternInitial AccessT1078 — Suspicious Failed Logon Source🟡 MEDIUMPatternDiscoveryT1069 — LDAP Recon🟡 MEDIUMRequires DCDiscoveryT1082 — Network Recon🟡 MEDIUMRequires DC
+
+✅ Lab = fired end-to-end against real telemetry.
+Pattern = production-grade rule, validated against known attack patterns.
+Requires DC = needs a Domain Controller to generate the relevant events.
+
+Tech Stack
+ComponentTechnologySIEMSplunk Enterprise 9.3BackendPython 3.10AIClaude Sonnet 4.6 (Anthropic)Detection RulesSigma → SPL (sigma-cli)Attack SimulationAtomic Red Team + Sysmon (SwiftOnSecurity config)Server OSUbuntu Server 22.04Endpoint OSWindows 10/11Log ForwarderSplunk Universal Forwarder
+
+Screenshots
+
+
+
+>>>>>>> b62ffe86893b88a34561f093faf7089574d8befc
 
 ## Tech Stack
 
