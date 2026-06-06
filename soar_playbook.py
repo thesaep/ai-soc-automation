@@ -105,7 +105,7 @@ if __name__ == "__main__":
         bf_events = get_brute_force_events(service, threshold=5)
 
         # MITRE ATT&CK detection (Faz 3)
-        mitre_events = get_all_mitre_events(service)
+        mitre_events = get_all_mitre_events(service, earliest=os.getenv("SEARCH_EARLIEST", "-5m"))
 
         # Tüm eventleri birleştir
         all_events = bf_events + mitre_events
