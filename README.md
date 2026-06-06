@@ -5,7 +5,7 @@ Built in public as a detection-engineering portfolio project. Each phase is docu
 <<<<<<< HEAD
 A modular SOC automation platform built with Splunk, Python, and Claude AI. Detects threats mapped to **MITRE ATT&CK**, analyzes them with an AI SOC analyst, and triggers automated incident response — end to end.
 
-Built in public as a detection-engineering portfolio project. Each phase is documented on [Medium]([https://erensaylan.medium.com/](https://erensaylan.medium.com/designing-an-ai-powered-soc-automation-platform-with-splunk-and-claude-ai-part-1-d75a173a5f2d)).
+Built in public as a detection-engineering portfolio project. Each phase is documented on [Medium](https://erensaylan.medium.com/designing-an-ai-powered-soc-automation-platform-with-splunk-and-claude-ai-part-1-d75a173a5f2d).
 
 > **Phase 1** detected brute force only. **Phase 2** added index-time log normalization and a 12-rule MITRE ATT&CK detection engine, validated in a dedicated attack-simulation lab.
 
