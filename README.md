@@ -114,14 +114,14 @@ Techniques simulated with Atomic Red Team and validated against the resulting Sy
 Phase 1 dashboard showing brute force activity across all risk levels. CRITICAL and HIGH severity events appear at the top.
 
 ### Email Notification
-![Email](screenshots/email1.png)
-![Email](screenshots/email2.png)
-![Email](screenshots/email3.png)
-![Email](screenshots/email4.png)
+![Email](screenshots/email5.png)
+![Email](screenshots/email6.png)
+![Email](screenshots/email7.png)
+![Email](screenshots/email8.png)
 Detailed automated email notifications sent for CRITICAL and HIGH severity events. AI analysis is included in the email body.
 
 ### Incident Log File
-![JSON](screenshots/incidents_json.png)
+![JSON](screenshots/incidents_json1.png)
 All detected events are stored with timestamps in `logs/incidents.json`, with AI analysis included.
 
 ---
