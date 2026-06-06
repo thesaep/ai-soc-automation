@@ -23,7 +23,7 @@ Universal Forwarder ──► Ubuntu VM (Splunk Enterprise — index-time field 
 REST API ──► Python (12 MITRE ATT&CK detections + event normalization)
         │
         ▼
-Claude API ──► Claude AI Analysis (per-technique MITRE context injection) + SOAR Playbook(threat analysis)
+Claude API ──► Claude AI Analysis (per-technique MITRE context injection + threat analysis) + SOAR Playbook
         │
         ▼
 Email Notification + JSON Incident Log
