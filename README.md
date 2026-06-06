@@ -248,7 +248,7 @@ ai-soc-automation/
 | Phase | Medium Article |
 |-------|---------------|
 | Phase 1 | [Brute-force detection, risk scoring, AI triage, SOAR](https://erensaylan.medium.com/designing-an-ai-powered-soc-automation-platform-with-splunk-and-claude-ai-part-1-d75a173a5f2d) |
-| Phase 2 | From one rule to a MITRE ATT&CK detection engine *(coming soon)* |
+| Phase 2 | [From one rule to a MITRE ATT&CK detection engine](https://medium.com/@erensaylan/designing-an-ai-powered-soc-automation-platform-with-splunk-and-claude-ai-part-2-169c67e4181b) |
 
 ---
 
