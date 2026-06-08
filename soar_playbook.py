@@ -5,6 +5,7 @@ from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 from datetime import datetime
 from dotenv import load_dotenv
+from incident_logger import log_incident_v2
 
 load_dotenv()
 
@@ -112,7 +113,7 @@ if __name__ == "__main__":
 
         if all_events:
             ai_analyses = analyze_with_claude(all_events, return_results=True)
-            log_incident(all_events, ai_analyses)
+            log_incident_v2(all_events, ai_analyses)
             send_email_alert(all_events, ai_analyses)
         else:
             print("\n  [*] Şüpheli olay bulunamadı")
