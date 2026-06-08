@@ -2,10 +2,12 @@ import json
 import os
 import hashlib
 import uuid
+import re
 from datetime import datetime, timezone
 
 # Log dosyası yolu
 LOG_FILE = "logs/incidents.json"
+
 
 def _compute_hash(incident: dict, prev_hash: str) -> str:
     """
@@ -14,7 +16,6 @@ def _compute_hash(incident: dict, prev_hash: str) -> str:
     sonraki tüm hash'ler geçersiz hale gelir.
     prev_hash: bir önceki incident'ın hash değeri (zincirin ilk halkası için "genesis")
     """
-    # Hash'lenecek veri: incident içeriği + önceki hash
     payload = json.dumps(incident, ensure_ascii=False, sort_keys=True) + prev_hash
     return hashlib.sha256(payload.encode("utf-8")).hexdigest()
 
@@ -38,16 +39,12 @@ def _extract_mitre_mapping(event: dict) -> dict:
     """
     Event'in detection_type field'ından MITRE teknik ID ve taktik adını çıkarır.
     detection_type örn: "T1550.002 Pass-the-Hash"
-    Splunk'tan gelen raw field'lardan taktik bilgisi de eklenir.
     """
     detection_type = event.get("detection_type", "")
 
-    # Teknik ID'yi çıkar (T + rakam + opsiyonel nokta + rakam)
-    import re
     match = re.search(r"T\d{4}(?:\.\d{3})?", detection_type)
     technique_id = match.group(0) if match else "UNKNOWN"
 
-    # Taktik → teknik ID'ye göre statik map (mitre_context.json olmadan da çalışsın)
     tactic_map = {
         "T1110": "Initial Access",
         "T1078": "Initial Access",
@@ -58,7 +55,6 @@ def _extract_mitre_mapping(event: dict) -> dict:
         "T1069": "Discovery",
         "T1082": "Discovery",
     }
-    # Tam ID'yi önce dene, yoksa prefix'e bak
     tactic = tactic_map.get(technique_id)
     if not tactic:
         prefix = technique_id.split(".")[0]
@@ -77,13 +73,12 @@ def _extract_triggered_fields(event: dict) -> dict:
     Splunk internal field'larını filtreler, sadece güvenlikle ilgili olanları tutar.
     Bu, 'hangi kanıt bu kararı tetikledi?' sorusunun cevabıdır.
     """
-    # Splunk internal / gürültülü field'lar
     skip = {
         "_raw", "_bkt", "_cd", "_indextime", "_serial", "_si",
         "_sourcetype", "_subsecond", "_time", "linecount", "punct",
         "splunk_server", "splunk_server_group", "index", "sourcetype",
         "source", "eventtype", "detection_type", "risk",
-        "user", "domain", "host", "src_ip",  # zaten üst seviyede var
+        "user", "domain", "host", "src_ip",
     }
     triggered = {}
     for k, v in event.items():
@@ -91,7 +86,6 @@ def _extract_triggered_fields(event: dict) -> dict:
             continue
         if v in (None, "", "-", [], "0", 0):
             continue
-        # List ise join et
         if isinstance(v, list):
             v = [x for x in v if x not in ("", "-", None)]
             if not v:
@@ -101,73 +95,9 @@ def _extract_triggered_fields(event: dict) -> dict:
     return triggered
 
 
-def build_incident(event: dict, analysis: str) -> dict:
-    """
-    Ham event + AI analizinden yapılandırılmış incident objesi üretir.
-    Bu fonksiyon Faz 4'ün çekirdeği: her sonraki faz bu şemayı kullanacak.
-
-    Şema alanları:
-      schema_version : gelecekteki şema değişikliklerinde eski logları parse etmek için
-      incident_id    : UUID4 — her incident için global benzersiz ID
-      timestamp      : UTC ISO8601 — timezone-aware, karşılaştırma için güvenli
-      pipeline_trace : hangi katmandan geldi, hangi kural, hangi field'lar tetikledi
-      entity         : kim/ne (user, domain, host, src_ip) — korelasyon anahtarları
-      mitre          : ATT&CK teknik + taktik yapılandırılmış
-      risk           : severity seviyesi
-      ai_analysis    : Claude'un ürettiği analiz metni
-      hash           : bu incident'ın + önceki hash'in SHA-256'sı (bütünlük zinciri)
-    """
-    incident = {
-        "schema_version": "2.0",                          # Faz 4 şeması
-        "incident_id": str(uuid.uuid4()),                  # Her incident için benzersiz ID
-        "timestamp": datetime.now(timezone.utc).isoformat(), # UTC, timezone-aware
-
-        # Pipeline trace: bu karar nasıl alındı?
-        "pipeline_trace": {
-            "detection_layer": "L1_SPL",                   # Faz 6'da L2/L3/L4 eklenecek
-            "detection_name": event.get("detection_type", "brute_force"),
-            "spl_file": _resolve_spl_file(event),          # Hangi .spl dosyası eşleşti
-            "triggered_fields": _extract_triggered_fields(event),  # Kanıt field'ları
-            "search_window": os.getenv("SEARCH_EARLIEST", "-5m"),  # Arama penceresi
-        },
-
-        # Entity: korelasyon için anahtar bilgiler (Faz 5'te bu field'lar üzerinden zincir kurulacak)
-        "entity": {
-            "user":   event.get("user", "-"),
-            "domain": event.get("domain", "-"),
-            "host":   event.get("host", "-"),
-            "src_ip": event.get("src_ip", "-"),
-        },
-
-        # MITRE ATT&CK mapping: yapılandırılmış, aranabilir
-        "mitre": _extract_mitre_mapping(event),
-
-        # Risk ve sayısal metrikler
-        "risk": event.get("risk", "-"),
-        "metrics": {
-            "failures":  event.get("failures", "-"),
-            "successes": event.get("successes", "-"),
-        },
-
-        # AI analizi: ham metin olarak sakla, Faz 8'de label olarak kullanılacak
-        "ai_analysis": analysis,
-
-        # Hash: sonradan doldurulacak (_compute_hash için incident tamamlanmış olmalı)
-        "hash": "",
-    }
-
-    # Hash'i hesapla (incident objesi tamamlandıktan sonra, hash field'ı hariç)
-    incident_without_hash = {k: v for k, v in incident.items() if k != "hash"}
-    prev_hash = _get_last_hash()
-    incident["hash"] = _compute_hash(incident_without_hash, prev_hash)
-
-    return incident
-
-
 def _resolve_spl_file(event: dict) -> str:
     """
     detection_type'tan hangi .spl dosyasının kullanıldığını çıkarır.
-    Faz 3'teki detection listesiyle uyumlu.
     """
     detection_map = {
         "T1550": "queries/sigma_converted/lateral_movement/T1550_pass_the_hash.spl",
@@ -186,39 +116,85 @@ def _resolve_spl_file(event: dict) -> str:
     return "unknown"
 
 
+def build_incident(event: dict, analysis: str) -> dict:
+    """Public wrapper — tek incident için (test/debug amaçlı)."""
+    prev_hash = _get_last_hash()
+    return _build_incident_with_hash(event, analysis, prev_hash)
+
+
+def _build_incident_with_hash(event: dict, analysis: str, prev_hash: str) -> dict:
+    """
+    Ham event + AI analizinden yapılandırılmış incident objesi üretir.
+    prev_hash: zincirdeki bir önceki incident'ın hash'i (bellekten gelir)
+    """
+    incident = {
+        "schema_version": "2.0",
+        "incident_id": str(uuid.uuid4()),
+        "timestamp": datetime.now(timezone.utc).isoformat(),
+        "pipeline_trace": {
+            "detection_layer": "L1_SPL",
+            "detection_name": event.get("detection_type", "brute_force"),
+            "spl_file": _resolve_spl_file(event),
+            "triggered_fields": _extract_triggered_fields(event),
+            "search_window": os.getenv("SEARCH_EARLIEST", "-5m"),
+        },
+        "entity": {
+            "user":   event.get("user", "-"),
+            "domain": event.get("domain", "-"),
+            "host":   event.get("host", "-"),
+            "src_ip": event.get("src_ip", "-"),
+        },
+        "mitre": _extract_mitre_mapping(event),
+        "risk": event.get("risk", "-"),
+        "metrics": {
+            "failures":  event.get("failures", "-"),
+            "successes": event.get("successes", "-"),
+        },
+        "ai_analysis": analysis,
+        "hash": "",
+    }
+
+    incident_without_hash = {k: v for k, v in incident.items() if k != "hash"}
+    incident["hash"] = _compute_hash(incident_without_hash, prev_hash)
+
+    return incident
+
+
 def log_incident_v2(events: list, ai_analyses: list) -> list:
     """
-    Faz 4 incident logger. Her event için build_incident() çağırır,
-    yapılandırılmış incident'ı hash-chain ile logs/incidents.json'a yazar.
-    Döndürülen liste: oluşturulan incident ID'leri (Faz 5 korelasyon için)
+    Faz 4 incident logger.
+    Her event için build_incident() çağırır, hash-chain ile yazar.
+    Hash zinciri bellekte takip edilir — dosyadan okuma race condition'ını önler.
+    Döndürülen liste: incident ID'leri (Faz 5 korelasyon için)
     """
     os.makedirs("logs", exist_ok=True)
 
-    # Mevcut logları yükle
     try:
         with open(LOG_FILE, "r", encoding="utf-8") as f:
             existing_logs = json.load(f)
     except (FileNotFoundError, json.JSONDecodeError):
         existing_logs = []
 
+    # Hash zincirini bellekte tut — her build_incident sonrası güncelle
+    # Böylece aynı batch içindeki incident'lar birbirini doğru referans alır
+    prev_hash = existing_logs[-1].get("hash", "genesis") if existing_logs else "genesis"
+
     incident_ids = []
 
     for event, analysis in zip(events, ai_analyses):
         try:
-            incident = build_incident(event, analysis)
+            # build_incident yerine direkt burada hash zincirini yönet
+            incident = _build_incident_with_hash(event, analysis, prev_hash)
             existing_logs.append(incident)
             incident_ids.append(incident["incident_id"])
-
-            # Terminal çıktısı
+            prev_hash = incident["hash"]  # bir sonraki incident bu hash'i kullanacak
             print(f"  [+] Incident logged | ID: {incident['incident_id'][:8]}... "
                   f"| {incident['mitre']['technique_id']} "
                   f"| {incident['risk']} "
                   f"| hash: {incident['hash'][:12]}...")
-
         except Exception as e:
             print(f"  [-] Incident log hatası: {e}")
 
-    # Tüm logları yaz
     try:
         with open(LOG_FILE, "w", encoding="utf-8") as f:
             json.dump(existing_logs, f, ensure_ascii=False, indent=2)
@@ -247,11 +223,9 @@ def verify_chain() -> bool:
         stored_hash = incident.get("hash", "")
         incident_without_hash = {k: v for k, v in incident.items() if k != "hash"}
         computed = _compute_hash(incident_without_hash, prev_hash)
-
         if computed != stored_hash:
             print(f"[-] Zincir kırık! Incident #{i} | ID: {incident.get('incident_id', '?')[:8]}...")
             return False
-
         prev_hash = stored_hash
 
     print(f"[+] Zincir doğrulandı: {len(logs)} incident, tümü sağlam")
@@ -259,5 +233,4 @@ def verify_chain() -> bool:
 
 
 if __name__ == "__main__":
-    # Zincir doğrulama modu
     verify_chain()
