@@ -262,6 +262,135 @@ KURALLAR:
 
     return analyses if return_results else []
 
+def analyze_chain_with_claude(chain: dict, return_result: bool = False):
+    """
+    Bir kill-chain zincirini bütün olarak Claude'a analiz ettirir.
+    Tek tek olay analizi yerine saldırı kampanyasının bütününü değerlendirir.
+
+    chain          : correlator.correlate_incidents() çıktısından bir zincir
+    return_result  : True ise analiz metnini döndürür (soar_playbook için)
+    """
+    import anthropic
+    import os
+    from dotenv import load_dotenv
+    load_dotenv()
+
+    incidents = chain.get("incidents", [])
+    if not incidents:
+        return ""
+
+    client = anthropic.Anthropic(api_key=os.getenv("ANTHROPIC_API_KEY"))
+
+    # Zincirdeki her olayı prompt'a ekle
+    incident_blocks = []
+    for i, inc in enumerate(incidents, 1):
+        entity  = inc.get("entity", {})
+        mitre   = inc.get("mitre", {})
+        trace   = inc.get("pipeline_trace", {})
+        fields  = trace.get("triggered_fields", {})
+
+        block = f"""OLAY #{i}:
+- Detection   : {mitre.get('technique_name', '-')}
+- Teknik ID   : {mitre.get('technique_id', '-')}
+- Taktik      : {mitre.get('tactic', '-')}
+- Risk        : {inc.get('risk', '-')}
+- Kullanıcı   : {entity.get('user', '-')}
+- Makine      : {entity.get('host', '-')}
+- Kaynak IP   : {entity.get('src_ip', '-')}
+- Kanıt field'ları: {fields}"""
+        incident_blocks.append(block)
+
+    combined = "\n\n".join(incident_blocks)
+
+    # Kill-chain özeti
+    tactics_str   = " → ".join(chain.get("tactics", []))
+    techniques_str = ", ".join(chain.get("techniques", []))
+    chain_risk    = chain.get("chain_risk", "-")
+    is_multistage = chain.get("is_multistage", False)
+    time_span     = chain.get("time_span_minutes", 0)
+
+    prompt = f"""Sen deneyimli bir SOC analistisin. Aşağıdaki {len(incidents)} güvenlik olayı,
+aynı kullanıcı ve makine üzerinde kısa sürede gerçekleşmiş ve otomatik korelasyon sistemi
+tarafından tek bir saldırı kampanyasına ait olarak gruplandırılmıştır.
+
+ZINCIR ÖZETI:
+- Hedef: {chain['entity']['user']} @ {chain['entity']['host']}
+- Zincir riski: {chain_risk}
+- Zaman aralığı: {time_span} dakika
+- Kill-chain aşamaları: {tactics_str}
+- Tespit edilen teknikler: {techniques_str}
+- Çok aşamalı saldırı: {"Evet" if is_multistage else "Hayır"}
+
+OLAYLAR:
+{combined}
+
+Bu zinciri bir bütün olarak değerlendir ve şu formatta yanıt ver:
+
+KİLL-CHAIN ANALİZİ:
+
+1. SALDIRI KAMPANYASI DEĞERLENDİRMESİ:
+(Bu olaylar gerçek bir koordineli saldırıyı mı temsil ediyor? 2-3 cümle)
+
+2. SALDIRGANIN AMACI:
+(Mevcut kill-chain aşamalarına göre saldırganın nihai hedefi ne? 2-3 cümle)
+
+3. SALDIRININ HANGİ AŞAMASINDAYIZ:
+(Kill-chain'de neredeyiz, hangi aşamalar tamamlandı, hangisi muhtemelen sırada? 2-3 cümle)
+
+4. SONRAKI MUHTEMEL ADIM:
+(Saldırganın büyük ihtimalle sonraki hamlesi ne olacak? Somut teknik tahmin yap)
+
+5. ACİL AKSİYONLAR:
+- (En kritik 1. eylem)
+- (En kritik 2. eylem)
+- (En kritik 3. eylem)
+
+KURALLAR:
+- Olayları birbirine bağla, izole değerlendir.
+- Teknik ATT&CK terminolojisini kullan.
+- Markdown formatting kullanma, düz metin yaz.
+"""
+
+    rc = risk_color(chain_risk)
+    print_header(
+        f"🔗 KİLL-CHAIN ANALİZİ  |  {chain['entity']['user']} @ {chain['entity']['host']}  |  {chain_risk}",
+        rc
+    )
+    print(f"\n{Colors.BOLD}{Colors.BLUE}  ZİNCİR BİLGİLERİ{Colors.RESET}")
+    print_divider(Colors.BLUE)
+    print_field("Zincir ID     :", chain.get("chain_id", "-"))
+    print_field("Olay Sayısı   :", str(len(incidents)))
+    print_field("Zincir Riski  :", f"{rc}{chain_risk}{Colors.RESET}")
+    print_field("Zaman Aralığı :", f"{time_span} dakika")
+    print_field("Kill-Chain    :", tactics_str)
+    print_field("Teknikler     :", techniques_str)
+
+    try:
+        message = client.messages.create(
+            model="claude-sonnet-4-6",
+            max_tokens=2000,
+            messages=[{"role": "user", "content": prompt}]
+        )
+        analysis = message.content[0].text
+
+        print(f"\n{Colors.BOLD}{Colors.CYAN}  KAMPANYA ANALİZİ{Colors.RESET}")
+        print_divider(Colors.CYAN)
+        for line in analysis.split("\n"):
+            print(f"  {Colors.WHITE}{line}{Colors.RESET}")
+
+        print()
+        if chain_risk == "CRITICAL":
+            print(f"  {Colors.BG_RED}{Colors.WHITE}{Colors.BOLD}  🚨 KRİTİK KAMPANYA — Koordineli saldırı tespit edildi  {Colors.RESET}")
+        elif chain_risk == "HIGH":
+            print(f"  {Colors.RED}{Colors.BOLD}  ⚠️  YÜKSEK RİSKLİ KAMPANYA — Derhal müdahale gerekiyor{Colors.RESET}")
+
+        if return_result:
+            return analysis
+        return ""
+
+    except Exception as e:
+        print(f"[-] Chain analiz hatası: {e}")
+        return ""
 
 if __name__ == "__main__":
     from splunk_connector import connect_splunk, get_brute_force_events
