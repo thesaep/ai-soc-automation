@@ -180,7 +180,7 @@ def _build_chain(user: str, host: str, incidents: list, idx: int) -> dict:
     time_span = (max(timestamps) - min(timestamps)).total_seconds() / 60 if len(timestamps) > 1 else 0.0
 
     return {
-        "chain_id": f"CHAIN-{user}-{host}-{idx}",
+        "chain_id": f"CHAIN-{user.split(chr(92))[-1]}-{idx:03d}",
         "entity": {"user": user, "host": host},
         "incident_count": len(incidents),
         "incidents": incidents,
@@ -201,7 +201,7 @@ def format_chain_summary(chain: dict) -> str:
     lines.append(f"Hedef: {chain['entity']['user']} @ {chain['entity']['host']}")
     lines.append(f"Olay sayısı: {chain['incident_count']} | Zincir riski: {chain['chain_risk']}")
     lines.append(f"Zaman aralığı: {chain['time_span_minutes']} dakika")
-    lines.append(f"Kill-chain aşamaları: {' → '.join(chain['tactics'])}")
+    lines.append(f"Kill-chain aşamaları: {' -> '.join(chain['tactics'])}")
     lines.append(f"Teknikler: {', '.join(chain['techniques'])}")
     return "\n".join(lines)
 
@@ -217,7 +217,7 @@ if __name__ == "__main__":
         incidents = []
 
     chains = correlate_incidents(incidents, time_window_minutes=60)
-    print(f"[+] {len(incidents)} incident → {len(chains)} kill-chain\n")
+    print(f"[+] {len(incidents)} incident -> {len(chains)} kill-chain\n")
     for chain in chains:
         print(format_chain_summary(chain))
         print("-" * 60)

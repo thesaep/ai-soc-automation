@@ -106,12 +106,12 @@ def risk_color(risk):
 
 def print_header(text, color=Colors.CYAN):
     width = 65
-    print(f"\n{color}{Colors.BOLD}{'═' * width}{Colors.RESET}")
+    print(f"\n{color}{Colors.BOLD}{'=' * width}{Colors.RESET}")
     print(f"{color}{Colors.BOLD}  {text}{Colors.RESET}")
-    print(f"{color}{Colors.BOLD}{'═' * width}{Colors.RESET}")
+    print(f"{color}{Colors.BOLD}{'=' * width}{Colors.RESET}")
 
 def print_divider(color=Colors.GRAY):
-    print(f"{color}{'─' * 65}{Colors.RESET}")
+    print(f"{color}{'-' * 65}{Colors.RESET}")
 
 def print_field(label, value, label_color=Colors.CYAN, value_color=Colors.WHITE):
     print(f"  {label_color}{Colors.BOLD}{label:<20}{Colors.RESET}{value_color}{value}{Colors.RESET}")
@@ -121,8 +121,8 @@ def analyze_with_claude(events, return_results=False):
     Güvenlik olaylarını Claude Sonnet'e gönderir ve analiz ettirir.
     Tüm eventleri TEK API çağrısında batch olarak işler (token tasarrufu).
     Her event için normalize edilmiş + ham field'lar prompt'a eklenir.
-    return_results=True → analiz metinlerini liste olarak döndürür (SOAR için)
-    return_results=False → sadece ekrana yazdırır
+    return_results=True -> analiz metinlerini liste olarak döndürür (SOAR için)
+    return_results=False -> sadece ekrana yazdırır
     """
     if not events:
         print(f"\n{Colors.GRAY}  ℹ  Analiz edilecek olay bulunamadı.{Colors.RESET}")
@@ -250,13 +250,13 @@ KURALLAR:
         # Risk bazlı aksiyon mesajı
         print()
         if risk == "CRITICAL":
-            print(f"  {Colors.BG_RED}{Colors.WHITE}{Colors.BOLD}  🚨 CRITICAL — Email bildirimi gönderildi, olay loglandı  {Colors.RESET}")
+            print(f"  {Colors.BG_RED}{Colors.WHITE}{Colors.BOLD}  [CRITICAL] CRITICAL — Email bildirimi gönderildi, olay loglandı  {Colors.RESET}")
         elif risk == "HIGH":
-            print(f"  {Colors.RED}{Colors.BOLD}  ⚠️  HIGH — Email bildirimi gönderildi, olay loglandı{Colors.RESET}")
+            print(f"  {Colors.RED}{Colors.BOLD}  [HIGH]  HIGH — Email bildirimi gönderildi, olay loglandı{Colors.RESET}")
         elif risk == "MEDIUM":
-            print(f"  {Colors.YELLOW}{Colors.BOLD}  🔶 MEDIUM — Olay loglandı, izlemeye devam{Colors.RESET}")
+            print(f"  {Colors.YELLOW}{Colors.BOLD}  [MEDIUM] MEDIUM — Olay loglandı, izlemeye devam{Colors.RESET}")
         else:
-            print(f"  {Colors.GREEN}{Colors.BOLD}  ✅ LOW — Olay loglandı{Colors.RESET}")
+            print(f"  {Colors.GREEN}{Colors.BOLD}  [OK] LOW — Olay loglandı{Colors.RESET}")
 
         analyses.append(analysis_text)
 
@@ -303,7 +303,7 @@ def analyze_chain_with_claude(chain: dict, return_result: bool = False):
     combined = "\n\n".join(incident_blocks)
 
     # Kill-chain özeti
-    tactics_str   = " → ".join(chain.get("tactics", []))
+    tactics_str   = " -> ".join(chain.get("tactics", []))
     techniques_str = ", ".join(chain.get("techniques", []))
     chain_risk    = chain.get("chain_risk", "-")
     is_multistage = chain.get("is_multistage", False)
@@ -353,7 +353,7 @@ KURALLAR:
 
     rc = risk_color(chain_risk)
     print_header(
-        f"🔗 KİLL-CHAIN ANALİZİ  |  {chain['entity']['user']} @ {chain['entity']['host']}  |  {chain_risk}",
+        f"[CHAIN] KİLL-CHAIN ANALİZİ  |  {chain['entity']['user']} @ {chain['entity']['host']}  |  {chain_risk}",
         rc
     )
     print(f"\n{Colors.BOLD}{Colors.BLUE}  ZİNCİR BİLGİLERİ{Colors.RESET}")
@@ -380,9 +380,9 @@ KURALLAR:
 
         print()
         if chain_risk == "CRITICAL":
-            print(f"  {Colors.BG_RED}{Colors.WHITE}{Colors.BOLD}  🚨 KRİTİK KAMPANYA — Koordineli saldırı tespit edildi  {Colors.RESET}")
+            print(f"  {Colors.BG_RED}{Colors.WHITE}{Colors.BOLD}  [CRITICAL] KRİTİK KAMPANYA — Koordineli saldırı tespit edildi  {Colors.RESET}")
         elif chain_risk == "HIGH":
-            print(f"  {Colors.RED}{Colors.BOLD}  ⚠️  YÜKSEK RİSKLİ KAMPANYA — Derhal müdahale gerekiyor{Colors.RESET}")
+            print(f"  {Colors.RED}{Colors.BOLD}  [HIGH]  YÜKSEK RİSKLİ KAMPANYA — Derhal müdahale gerekiyor{Colors.RESET}")
 
         if return_result:
             return analysis

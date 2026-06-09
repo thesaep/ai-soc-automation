@@ -5,6 +5,7 @@ from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 from datetime import datetime
 from dotenv import load_dotenv
+import time
 from incident_logger import log_incident_v2
 
 load_dotenv()
@@ -23,7 +24,7 @@ def send_email_alert(events, ai_analyses):
     if not high_risk_pairs:
         return
 
-    subject = f"🚨 SOC ALERT: {len(high_risk_pairs)} Yüksek Riskli Olay Tespit Edildi"
+    subject = f"[CRITICAL] SOC ALERT: {len(high_risk_pairs)} Yüksek Riskli Olay Tespit Edildi"
     
     body = f"""
 SOC OTOMATİK UYARI SİSTEMİ
@@ -75,6 +76,7 @@ if __name__ == "__main__":
     from incident_logger import log_incident_v2
     from triage_scorer import triage_events, format_triage_summary
 
+    start_time = time.time()
     service = connect_splunk()
     if service:
         # L1: Detection (Faz 1 + Faz 3)
@@ -95,14 +97,14 @@ if __name__ == "__main__":
 
             # L2: Cascading triage — hangi olaylar Claude'a gidecek?
             print(f"\n{'='*65}")
-            print(f"  ⚙️  L2 CASCADING TRIAGE")
+            print(f"  [TRIAGE]  L2 CASCADING TRIAGE")
             print(f"{'='*65}")
             triage = triage_events(all_events, chains=prelim_chains)
             print(format_triage_summary(triage))
             for i, (ev, sc) in enumerate(zip(all_events, triage["scores"]), 1):
                 comp = ", ".join(f"{k}:{v}" for k, v in sc["components"].items())
                 print(f"  #{i} {ev.get('detection_type','?')[:35]:<35} "
-                      f"skor={sc['score']:3} → {sc['verdict']:<10} [{comp}]")
+                      f"skor={sc['score']:3} -> {sc['verdict']:<10} [{comp}]")
 
 
             escalate_events = triage["escalate"]
@@ -110,10 +112,10 @@ if __name__ == "__main__":
 
             # L4: Sadece ESCALATE olanlar Claude'a gider
             if escalate_events:
-                print(f"\n  → {len(escalate_events)} olay L4 (Claude) analizine yükseltildi")
+                print(f"\n  -> {len(escalate_events)} olay L4 (Claude) analizine yükseltildi")
                 ai_analyses = analyze_with_claude(escalate_events, return_results=True)
             else:
-                print(f"\n  → Hiçbir olay eşiği geçmedi, L4 atlandı (token tasarrufu)")
+                print(f"\n  -> Hiçbir olay eşiği geçmedi, L4 atlandı (token tasarrufu)")
                 ai_analyses = []
 
             # Auto-log olanlar için Claude analizi yerine placeholder
@@ -135,7 +137,7 @@ if __name__ == "__main__":
 
         if chains:
             print(f"\n{'='*65}")
-            print(f"  🔗 KORELASYON: {len(all_incidents)} olay → {len(chains)} kill-chain")
+            print(f"  [CHAIN] KORELASYON: {len(all_incidents)} olay ({len(all_events)} yeni) -> {len(chains)} zincir")
             print(f"{'='*65}")
             # Sadece yeni incident_id'leri içeren zincirleri derin analiz et
             # Geçmiş zincirler zaten analiz edilmişti — duplikasyonu önler
@@ -147,5 +149,33 @@ if __name__ == "__main__":
                 if has_new and (chain["is_multistage"] or chain["chain_risk"] == "CRITICAL"):
                     analyze_chain_with_claude(chain)
                 elif has_new:
-                    print(f"\n  [zincir] {format_chain_summary(chain)}")
-                # Tamamen eski olaylardan oluşan zincirler atlanır
+                    risk_icon = {"CRITICAL": "[C]", "HIGH": "[H]", "MEDIUM": "[M]", "LOW": "[L]"}.get(chain["chain_risk"], "⚪")
+            entity = chain["entity"]
+            tactics = " -> ".join(chain["tactics"])
+            print(f"\n  {risk_icon} {chain['chain_risk']:<8} {chain['chain_id']} | {chain['incident_count']} olay | {tactics}")
+                    # Tamamen eski olaylardan oluşan zincirler atlanır
+        
+        # Email: yüksek riskli olaylar
+            send_email_alert(combined_events, combined_analyses)
+
+            # Özet rapor — LOW/MEDIUM auto-log olayları
+            if autolog_events:
+                from collections import Counter
+                tech_counts = Counter(e.get('detection_type', '?') for e in autolog_events)
+                entities = set(f"{e.get('user','-')}@{e.get('host','-')}" for e in autolog_events)
+                print(f"\n{'-'*65}")
+                risk_dist = Counter(e.get('risk', '-') for e in autolog_events)
+                risk_str = " | ".join(f"{r}x{c}" for r, c in sorted(risk_dist.items()))
+                print(f"  [OZET] AUTO-LOG ÖZET ({len(autolog_events)} olay — {risk_str} — Claude'a gönderilmedi)")
+                print(f"{'-'*65}")
+                for tech, count in tech_counts.most_common():
+                    print(f"  * {tech[:45]:<45} x{count}")
+                print(f"  Etkilenen entity'ler: {', '.join(entities)}")
+                print(f"  [i]  Manuel inceleme önerisi: Splunk'ta ilgili detection'ları kontrol et")
+                print(f"{'-'*65}")
+                # Pipeline özeti
+                elapsed = round(time.time() - start_time, 1)
+                escalated = len(all_events) - len(autolog_events)
+                print(f"\n  [OK] Pipeline tamamlandı | {len(all_events)} detection | "
+                      f"{escalated} ESCALATE | {len(autolog_events)} AUTO-LOG | "
+                      f"{len(chains)} zincir | {len(incident_ids)} incident | {elapsed}s")

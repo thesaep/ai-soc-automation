@@ -180,9 +180,9 @@ def log_incident_v2(events: list, ai_analyses: list) -> list:
     Döndürülen liste: incident ID'leri (Faz 5 korelasyon için)
     """
 
-    print(f"\n{'─'*65}")
-    print(f"  📋 INCIDENT LOGGING")
-    print(f"{'─'*65}")
+    print(f"\n{'-'*65}")
+    print(f"  [LOG] INCIDENT LOGGING")
+    print(f"{'-'*65}")
     os.makedirs("logs", exist_ok=True)
 
     try:
@@ -214,7 +214,7 @@ def log_incident_v2(events: list, ai_analyses: list) -> list:
     try:
         with open(LOG_FILE, "w", encoding="utf-8") as f:
             json.dump(existing_logs, f, ensure_ascii=False, indent=2)
-        print(f"\n  [+] {len(incident_ids)} incident yazıldı → {LOG_FILE}")
+        print(f"\n  [+] {len(incident_ids)} incident yazıldı -> {LOG_FILE}")
     except Exception as e:
         print(f"  [-] Log dosyası yazma hatası: {e}")
 

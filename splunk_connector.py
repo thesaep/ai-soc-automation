@@ -34,7 +34,6 @@ def load_query(query_file, threshold=5):
             query = f.read()
         # {threshold} ifadesini gerçek değerle değiştir
         query = query.replace("{threshold}", str(threshold))
-        print(f"[+] Sorgu yüklendi: {query_file}")
         return query
     except FileNotFoundError:
         print(f"[-] Sorgu dosyası bulunamadı: {query_file}")
