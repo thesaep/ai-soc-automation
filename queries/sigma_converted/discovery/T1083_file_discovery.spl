@@ -1,0 +1,1 @@
+source="WinEventLog:Microsoft-Windows-Sysmon/Operational" EventCode=1 (CommandLine="*dir /s*" OR CommandLine="*dir /b*" OR CommandLine="*Get-ChildItem*" OR CommandLine="*gci *" OR CommandLine="*tree *" OR Image="*\\where.exe") NOT User="NT AUTHORITY\\SYSTEM" NOT ParentImage="*\\splunk*" | table Image,CommandLine,User,ParentImage,ProcessId,ComputerName

@@ -24,6 +24,11 @@ TECHNIQUE_WEIGHT = {
     "T1078": 10,   # Valid accounts
     "T1069": 5,    # Discovery
     "T1082": 5,    # Discovery
+    "T1057": 3,    # Process Discovery — düşük, rutin recon
+    "T1083": 3,    # File Discovery — düşük, rutin recon
+    "T1012": 3,    # Registry Query — düşük, rutin recon
+    "T1136": 12,   # Local Account Create — persistence
+    "T1098": 12,   # Account Manipulation — persistence
 }
 
 # Kritik asset listesi. Bu host'lardaki olaylar daha yüksek öncelik alır.

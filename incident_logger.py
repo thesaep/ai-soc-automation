@@ -54,6 +54,12 @@ def _extract_mitre_mapping(event: dict) -> dict:
         "T1070": "Defense Evasion",
         "T1069": "Discovery",
         "T1082": "Discovery",
+        "T1057": "Discovery",
+        "T1083": "Discovery",
+        "T1012": "Discovery",
+        "T1003": "Credential Access",
+        "T1136": "Persistence",
+        "T1098": "Persistence",
     }
     tactic = tactic_map.get(technique_id)
     if not tactic:
@@ -108,6 +114,12 @@ def _resolve_spl_file(event: dict) -> str:
         "T1069": "queries/sigma_converted/discovery/T1069_ldap_recon.spl",
         "T1082": "queries/sigma_converted/discovery/T1082_net_recon.spl",
         "brute":  "queries/brute_force.spl",
+	"T1057": "queries/sigma_converted/discovery/T1057_process_discovery.spl",
+        "T1083": "queries/sigma_converted/discovery/T1083_file_discovery.spl",
+        "T1012": "queries/sigma_converted/discovery/T1012_registry_query.spl",
+        "T1003": "queries/sigma_converted/credential_access/T1003_lsass_dump.spl",
+        "T1136": "queries/sigma_converted/persistence/T1136_local_account.spl",
+        "T1098": "queries/sigma_converted/persistence/T1098_account_manipulation.spl",
     }
     detection_type = event.get("detection_type", "")
     for key, path in detection_map.items():

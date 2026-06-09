@@ -40,7 +40,6 @@ def load_query(query_file, threshold=5):
         print(f"[-] Sorgu dosyası bulunamadı: {query_file}")
         return None
 
-
 def _mv_last(value):
     """
     Splunk bazı field'ları çok-değerli (list) döndürür (örn. Account_Name).
@@ -48,10 +47,9 @@ def _mv_last(value):
     List değilse değeri olduğu gibi döndürür, boşsa '-' verir.
     """
     if isinstance(value, list):
-        non_empty = [v for v in value if v not in ("", "-", None)]
+        non_empty = [v for v in value if v not in ("", "-", None, "NOT_TRANSLATED")]
         return non_empty[-1] if non_empty else "-"
     return value if value not in ("", None) else "-"
-
 
 def normalize_event(event):
     """
@@ -62,7 +60,7 @@ def normalize_event(event):
     """
     # Ortak şema → bu field aday listesinden ilk dolu olanı alır
     field_map = {
-        "user":   ["Account_Name", "user", "TargetUserName", "Network_Account_Name"],
+        "user":   ["Account_Name", "user", "TargetUserName", "Network_Account_Name", "User"],
         "domain": ["Account_Domain", "domain", "TargetDomainName", "Network_Account_Domain"],
         "host":   ["ComputerName", "host"],
         "src_ip": ["Source_Network_Address", "src_ip", "IpAddress"],
@@ -82,6 +80,9 @@ def normalize_event(event):
         # Hiçbiri yoksa '-' ata (downstream kod KeyError almasın)
         if not found:
             event[norm_key] = "-"
+	# Sysmon User field'ı "DOMAIN\username" formatında gelebilir — sadece username al
+        if event.get("user") and "\\" in str(event.get("user", "")):
+            event["user"] = event["user"].split("\\")[-1]
 
     return event
 
@@ -230,6 +231,19 @@ def get_all_mitre_events(service, earliest="-5m"):
          "queries/sigma_converted/execution/T1059_obfuscation_rundll32.spl", "HIGH"),
         ("T1059 Obfuscation via Stdin",
          "queries/sigma_converted/execution/T1059_obfuscation_stdin.spl", "HIGH"),
+	# Faz 6 — DC gerektirmeyen ek teknikler (Sysmon)
+        ("T1057 Process Discovery",
+         "queries/sigma_converted/discovery/T1057_process_discovery.spl", "LOW"),
+        ("T1083 File and Directory Discovery",
+         "queries/sigma_converted/discovery/T1083_file_discovery.spl", "LOW"),
+        ("T1012 Query Registry",
+         "queries/sigma_converted/discovery/T1012_registry_query.spl", "LOW"),
+        ("T1003.001 LSASS Memory Dump",
+         "queries/sigma_converted/credential_access/T1003_lsass_dump.spl", "HIGH"),
+        ("T1136.001 Create Local Account",
+         "queries/sigma_converted/persistence/T1136_local_account.spl", "HIGH"),
+        ("T1098 Account Manipulation",
+         "queries/sigma_converted/persistence/T1098_account_manipulation.spl", "HIGH"),	
     ]
 
     all_events = []

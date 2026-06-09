@@ -1,0 +1,1 @@
+source="WinEventLog:Microsoft-Windows-Sysmon/Operational" EventCode=1 (Image="*\\reg.exe" CommandLine="*query*") OR (CommandLine="*Get-ItemProperty*" CommandLine="*HKLM*") OR (CommandLine="*Get-ItemProperty*" CommandLine="*HKCU*") NOT User="NT AUTHORITY\\SYSTEM" NOT ParentImage="*\\splunk*" | table Image,CommandLine,User,ParentImage,ProcessId,ComputerName

@@ -1,0 +1,1 @@
+source="WinEventLog:Microsoft-Windows-Sysmon/Operational" EventCode=1 (CommandLine="*lsass*" (CommandLine="*procdump*" OR CommandLine="*comsvcs*" OR CommandLine="*MiniDump*" OR CommandLine="*-ma *" OR CommandLine="*rundll32*")) NOT User="NT AUTHORITY\\SYSTEM" NOT ParentImage="*\\splunk*" | table Image,CommandLine,User,ParentImage,ProcessId,Hashes,ComputerName

@@ -1,0 +1,1 @@
+source="WinEventLog:Microsoft-Windows-Sysmon/Operational" EventCode=1 (Image="*\\tasklist.exe" OR Image="*\\qprocess.exe" OR CommandLine="*Get-Process*" OR CommandLine="*ps *" OR CommandLine="*wmic process*") NOT User="NT AUTHORITY\\SYSTEM" NOT ParentImage="*\\splunk*" | table Image,CommandLine,User,ParentImage,ProcessId,ComputerName

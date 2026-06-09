@@ -99,6 +99,11 @@ if __name__ == "__main__":
             print(f"{'='*65}")
             triage = triage_events(all_events, chains=prelim_chains)
             print(format_triage_summary(triage))
+            for i, (ev, sc) in enumerate(zip(all_events, triage["scores"]), 1):
+                comp = ", ".join(f"{k}:{v}" for k, v in sc["components"].items())
+                print(f"  #{i} {ev.get('detection_type','?')[:35]:<35} "
+                      f"skor={sc['score']:3} → {sc['verdict']:<10} [{comp}]")
+
 
             escalate_events = triage["escalate"]
             autolog_events = triage["autolog"]
