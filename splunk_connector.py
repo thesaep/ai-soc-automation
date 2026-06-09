@@ -224,7 +224,7 @@ def get_all_mitre_events(service, earliest="-5m"):
         ("T1069 LDAP Recon",
          "queries/sigma_converted/discovery/T1069_ldap_recon.spl", "MEDIUM"),
         ("T1082 Network Recon",
-         "queries/sigma_converted/discovery/T1082_net_recon.spl", "MEDIUM"),
+         "queries/sigma_converted/discovery/T1082_net_recon.spl", "LOW"),
         ("T1059 Obfuscation via MSHTA",
          "queries/sigma_converted/execution/T1059_obfuscation_mshta.spl", "HIGH"),
         ("T1059 Obfuscation via Rundll32",

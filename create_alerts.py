@@ -28,7 +28,7 @@ alerts = [
     {
         "name": "MITRE T1082 - Network Recon",
         "file": "discovery/T1082_net_recon.spl",
-        "severity": "medium",
+        "severity": "low",
         "cron": "*/5 * * * *"
     },
     {
@@ -82,6 +82,42 @@ alerts = [
     {
         "name": "MITRE T1053 - Suspicious Scheduled Task",
         "file": "persistence/T1053_scheduled_task.spl",
+        "severity": "high",
+        "cron": "*/5 * * * *"
+    },
+    {
+        "name": "MITRE T1057 - Process Discovery",
+        "file": "discovery/T1057_process_discovery.spl",
+        "severity": "low",
+        "cron": "*/5 * * * *"
+    },
+    {
+        "name": "MITRE T1083 - File and Directory Discovery",
+        "file": "discovery/T1083_file_discovery.spl",
+        "severity": "low",
+        "cron": "*/5 * * * *"
+    },
+    {
+        "name": "MITRE T1012 - Query Registry",
+        "file": "discovery/T1012_registry_query.spl",
+        "severity": "low",
+        "cron": "*/5 * * * *"
+    },
+    {
+        "name": "MITRE T1003 - LSASS Memory Dump",
+        "file": "credential_access/T1003_lsass_dump.spl",
+        "severity": "high",
+        "cron": "*/5 * * * *"
+    },
+    {
+        "name": "MITRE T1136 - Create Local Account",
+        "file": "persistence/T1136_local_account.spl",
+        "severity": "high",
+        "cron": "*/5 * * * *"
+    },
+    {
+        "name": "MITRE T1098 - Account Manipulation",
+        "file": "persistence/T1098_account_manipulation.spl",
         "severity": "high",
         "cron": "*/5 * * * *"
     },

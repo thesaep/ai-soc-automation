@@ -23,7 +23,7 @@ TECHNIQUE_WEIGHT = {
     "T1059": 12,   # Obfuscated execution
     "T1078": 10,   # Valid accounts
     "T1069": 5,    # Discovery
-    "T1082": 5,    # Discovery
+    "T1082": 3,    # Discovery
     "T1057": 3,    # Process Discovery — düşük, rutin recon
     "T1083": 3,    # File Discovery — düşük, rutin recon
     "T1012": 3,    # Registry Query — düşük, rutin recon
