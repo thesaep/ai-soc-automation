@@ -102,10 +102,23 @@ if __name__ == "__main__":
             triage = triage_events(all_events, chains=prelim_chains)
             print(format_triage_summary(triage))
             for i, (ev, sc) in enumerate(zip(all_events, triage["scores"]), 1):
-                comp = ", ".join(f"{k}:{v}" for k, v in sc["components"].items())
-                print(f"  #{i} {ev.get('detection_type','?')[:35]:<35} "
-                      f"skor={sc['score']:3} -> {sc['verdict']:<10} [{comp}]")
-
+                verdict_tr = {"ESCALATE": "L4-CLAUDE", "MONITOR": "IZLE", "SUPPRESS": "AUTO-LOG"}.get(sc["verdict"], sc["verdict"])
+                comp_tr = {
+                    "severity_base": "severity",
+                    "technique_weight": "teknik_agirlik",
+                    "critical_asset": "kritik_asset",
+                    "off_hours": "mesai_disi",
+                    "breach_pattern": "ihlal_pattern",
+                    "high_volume_failures": "cok_basarisiz",
+                    "chain_member": "kill_chain_uyesi",
+                }
+                comp_str = " + ".join(f"{comp_tr.get(k,k)}:{v}" for k, v in sc["components"].items())
+                threshold = sc.get("threshold", 60)
+                print(f"  #{i} {ev.get('detection_type','?')[:35]:<35} | "
+                      f"Skor:{sc['score']:3}/100 | "
+                      f"Esik:{threshold} | "
+                      f"Karar:{verdict_tr:<10} | "
+                      f"{comp_str}")
 
             escalate_events = triage["escalate"]
             autolog_events = triage["autolog"]
@@ -144,16 +157,15 @@ if __name__ == "__main__":
         
             new_ids = set(incident_ids)
             for chain in chains:
+                risk_icon = {"CRITICAL": "[C]", "HIGH": "[H]", "MEDIUM": "[M]", "LOW": "[L]"}.get(chain["chain_risk"], "[?]")
+                entity = chain["entity"]
+                tactics = " -> ".join(chain["tactics"])
                 chain_ids = {inc.get("incident_id") for inc in chain.get("incidents", [])}
                 has_new = bool(chain_ids & new_ids)
                 if has_new and (chain["is_multistage"] or chain["chain_risk"] == "CRITICAL"):
                     analyze_chain_with_claude(chain)
                 elif has_new:
-                    risk_icon = {"CRITICAL": "[C]", "HIGH": "[H]", "MEDIUM": "[M]", "LOW": "[L]"}.get(chain["chain_risk"], "⚪")
-            entity = chain["entity"]
-            tactics = " -> ".join(chain["tactics"])
-            print(f"\n  {risk_icon} {chain['chain_risk']:<8} {chain['chain_id']} | {chain['incident_count']} olay | {tactics}")
-                    # Tamamen eski olaylardan oluşan zincirler atlanır
+                    print(f"\n  {risk_icon} {chain['chain_risk']:<8} {chain['chain_id']} | {chain['incident_count']} olay | {tactics}")
         
         # Email: yüksek riskli olaylar
             send_email_alert(combined_events, combined_analyses)
