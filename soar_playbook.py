@@ -102,23 +102,32 @@ if __name__ == "__main__":
             triage = triage_events(all_events, chains=prelim_chains)
             print(format_triage_summary(triage))
             for i, (ev, sc) in enumerate(zip(all_events, triage["scores"]), 1):
-                verdict_tr = {"ESCALATE": "L4-CLAUDE", "MONITOR": "IZLE", "SUPPRESS": "AUTO-LOG"}.get(sc["verdict"], sc["verdict"])
-                comp_tr = {
-                    "severity_base": "severity",
-                    "technique_weight": "teknik_agirlik",
-                    "critical_asset": "kritik_asset",
-                    "off_hours": "mesai_disi",
-                    "breach_pattern": "ihlal_pattern",
-                    "high_volume_failures": "cok_basarisiz",
-                    "chain_member": "kill_chain_uyesi",
-                }
-                comp_str = " + ".join(f"{comp_tr.get(k,k)}:{v}" for k, v in sc["components"].items())
-                threshold = sc.get("threshold", 60)
-                print(f"  #{i} {ev.get('detection_type','?')[:35]:<35} | "
+                karar = {"ESCALATE": "-> L4-CLAUDE", "MONITOR": "-> IZLE", "SUPPRESS": "-> AUTO-LOG"}.get(sc["verdict"], sc["verdict"])
+                # Skor bileşenlerini anlamlı açıklamaya çevir
+                neden_parts = []
+                if "severity_base" in sc["components"]:
+                    risk = ev.get("risk", "-")
+                    neden_parts.append(f"{risk} severity")
+                if "technique_weight" in sc["components"]:
+                    w = sc["components"]["technique_weight"]
+                    if w >= 15:
+                        neden_parts.append(f"kritik teknik (agirlik:{w})")
+                    elif w >= 10:
+                        neden_parts.append(f"orta riskli teknik (agirlik:{w})")
+                    else:
+                        neden_parts.append(f"dusuk riskli teknik (agirlik:{w})")
+                if "off_hours" in sc["components"]:
+                    neden_parts.append(f"mesai disi")
+                if "critical_asset" in sc["components"]:
+                    neden_parts.append(f"kritik asset")
+                if "breach_pattern" in sc["components"]:
+                    neden_parts.append(f"ihlal pattern (cok basarisiz+basarili)")
+                if "chain_member" in sc["components"]:
+                    neden_parts.append(f"kill-chain uyesi")
+                neden = " | ".join(neden_parts)
+                print(f"  #{i:<2} {ev.get('detection_type','?')[:35]:<35} | "
                       f"Skor:{sc['score']:3}/100 | "
-                      f"Esik:{threshold} | "
-                      f"Karar:{verdict_tr:<10} | "
-                      f"{comp_str}")
+                      f"{karar:<12} | {neden}")
 
             escalate_events = triage["escalate"]
             autolog_events = triage["autolog"]
