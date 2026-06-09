@@ -167,6 +167,10 @@ def log_incident_v2(events: list, ai_analyses: list) -> list:
     Hash zinciri bellekte takip edilir — dosyadan okuma race condition'ını önler.
     Döndürülen liste: incident ID'leri (Faz 5 korelasyon için)
     """
+
+    print(f"\n{'─'*65}")
+    print(f"  📋 INCIDENT LOGGING")
+    print(f"{'─'*65}")
     os.makedirs("logs", exist_ok=True)
 
     try:

@@ -73,47 +73,74 @@ if __name__ == "__main__":
     from ai_analyzer import analyze_with_claude, analyze_chain_with_claude
     from correlator import correlate_incidents, format_chain_summary
     from incident_logger import log_incident_v2
+    from triage_scorer import triage_events, format_triage_summary
 
     service = connect_splunk()
     if service:
-        # Brute force detection (Faz 1)
+        # L1: Detection (Faz 1 + Faz 3)
         bf_events = get_brute_force_events(service, threshold=5)
-        # MITRE ATT&CK detection (Faz 3)
         mitre_events = get_all_mitre_events(service, earliest=os.getenv("SEARCH_EARLIEST", "-5m"))
-        # Tüm eventleri birleştir
         all_events = bf_events + mitre_events
 
-        if all_events:
-            # Faz 3: Bireysel olay analizi
-            ai_analyses = analyze_with_claude(all_events, return_results=True)
+        if not all_events:
+            print("\n  [*] Şüpheli olay bulunamadı")
+        else:
+            # Korelasyon için önce mevcut incident geçmişini yükle (zincir üyeliği skoru etkiler)
+            try:
+                with open("logs/incidents.json", "r", encoding="utf-8") as f:
+                    history = json.load(f)
+            except Exception:
+                history = []
+            prelim_chains = correlate_incidents(history + all_events, time_window_minutes=60)
 
-            # Faz 4: Structured incident logging + hash chain
-            incident_ids = log_incident_v2(all_events, ai_analyses)
+            # L2: Cascading triage — hangi olaylar Claude'a gidecek?
+            print(f"\n{'='*65}")
+            print(f"  ⚙️  L2 CASCADING TRIAGE")
+            print(f"{'='*65}")
+            triage = triage_events(all_events, chains=prelim_chains)
+            print(format_triage_summary(triage))
 
-            # Faz 5: Korelasyon — olayları zincire grupla
+            escalate_events = triage["escalate"]
+            autolog_events = triage["autolog"]
+
+            # L4: Sadece ESCALATE olanlar Claude'a gider
+            if escalate_events:
+                print(f"\n  → {len(escalate_events)} olay L4 (Claude) analizine yükseltildi")
+                ai_analyses = analyze_with_claude(escalate_events, return_results=True)
+            else:
+                print(f"\n  → Hiçbir olay eşiği geçmedi, L4 atlandı (token tasarrufu)")
+                ai_analyses = []
+
+            # Auto-log olanlar için Claude analizi yerine placeholder
+            autolog_analyses = ["[L2 AUTO-LOG] Skor eşiği altında, otomatik loglandı, izlemede."
+                                for _ in autolog_events]
+
+            # Tüm olayları logla (escalate + autolog), sırayı koru
+            combined_events = escalate_events + autolog_events
+            combined_analyses = ai_analyses + autolog_analyses
+            incident_ids = log_incident_v2(combined_events, combined_analyses)
+
+            # Faz 5: Korelasyon — güncel incident geçmişiyle zincirleri çıkar
             try:
                 with open("logs/incidents.json", "r", encoding="utf-8") as f:
                     all_incidents = json.load(f)
             except Exception:
                 all_incidents = []
-
             chains = correlate_incidents(all_incidents, time_window_minutes=60)
 
-            if chains:
-                print(f"\n{'='*65}")
-                print(f"  🔗 KORİLASYON: {len(all_incidents)} olay → {len(chains)} kill-chain")
-                print(f"{'='*65}")
-
-                for chain in chains:
-                    # Sadece çok aşamalı veya CRITICAL zincirleri derin analiz et
-                    if chain["is_multistage"] or chain["chain_risk"] == "CRITICAL":
-                        analyze_chain_with_claude(chain)
-                    else:
-                        # Tek olaylı/düşük riskli zincirleri sadece özetle
-                        print(f"\n  [zincir] {format_chain_summary(chain)}")
-
-            # Email: bireysel yüksek riskli olaylar
-            send_email_alert(all_events, ai_analyses)
-
-        else:
-            print("\n  [*] Şüpheli olay bulunamadı")
+        if chains:
+            print(f"\n{'='*65}")
+            print(f"  🔗 KORELASYON: {len(all_incidents)} olay → {len(chains)} kill-chain")
+            print(f"{'='*65}")
+            # Sadece yeni incident_id'leri içeren zincirleri derin analiz et
+            # Geçmiş zincirler zaten analiz edilmişti — duplikasyonu önler
+        
+            new_ids = set(incident_ids)
+            for chain in chains:
+                chain_ids = {inc.get("incident_id") for inc in chain.get("incidents", [])}
+                has_new = bool(chain_ids & new_ids)
+                if has_new and (chain["is_multistage"] or chain["chain_risk"] == "CRITICAL"):
+                    analyze_chain_with_claude(chain)
+                elif has_new:
+                    print(f"\n  [zincir] {format_chain_summary(chain)}")
+                # Tamamen eski olaylardan oluşan zincirler atlanır
