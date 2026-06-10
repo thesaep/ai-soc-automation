@@ -1,1 +1,1 @@
-source="WinEventLog:System" Provider_Name="Service Control Manager" EventCode=7045 ImagePath="*mshta*" ImagePath="*vbscript:createobject*" | table Service_Name,Service_File_Name,ImagePath,ComputerName
+source="WinEventLog:Microsoft-Windows-Sysmon/Operational" EventCode=1 Image="*mshta*" (CommandLine="*vbscript*" OR CommandLine="*javascript*" OR CommandLine="*CreateObject*" OR CommandLine="*WScript*") NOT User="NT AUTHORITY\\SYSTEM" NOT ParentImage="*\\splunk*" | table Image,CommandLine,User,ParentImage,ProcessId,ComputerName

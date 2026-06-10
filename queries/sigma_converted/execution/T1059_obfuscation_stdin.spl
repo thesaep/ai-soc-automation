@@ -1,1 +1,1 @@
-source="WinEventLog:System" Provider_Name="Service Control Manager" EventCode=7045 ImagePath="*set*" ImagePath="*&&*" ImagePath IN ("*environment*", "*invoke*", "*input*") | table Service_Name,Service_File_Name,ImagePath,ComputerName
+source="WinEventLog:Microsoft-Windows-Sysmon/Operational" EventCode=1 Image="*cmd.exe" (CommandLine="*&&*" (CommandLine="*set*" CommandLine="*environment*") OR CommandLine="*invoke*" OR CommandLine="*input*") NOT User="NT AUTHORITY\\SYSTEM" NOT ParentImage="*\\splunk*" | table Image,CommandLine,User,ParentImage,ProcessId,ComputerName
