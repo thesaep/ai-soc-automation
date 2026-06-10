@@ -24,30 +24,28 @@ def send_email_alert(events, ai_analyses):
     if not high_risk_pairs:
         return
 
-    subject = f"[CRITICAL] SOC ALERT: {len(high_risk_pairs)} Yüksek Riskli Olay Tespit Edildi"
-    
-    body = f"""
-SOC OTOMATİK UYARI SİSTEMİ
-Tarih: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}
-Toplam Yüksek Riskli Olay: {len(high_risk_pairs)}
+    risks = [e.get('risk', 'HIGH') for e, _ in high_risk_pairs]
+    top_risk = 'CRITICAL' if 'CRITICAL' in risks else 'HIGH'
+    subject = f"[{top_risk}] SOC ALERT: {len(high_risk_pairs)} Yüksek Riskli Olay | {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}"
 
+    body = f"""
+SOC OTOMATIK UYARI SISTEMI
+Tarih    : {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}
+Toplam   : {len(high_risk_pairs)} yüksek riskli olay
 {'='*60}
 OLAY DETAYLARI
 {'='*60}
 """
-    
     for i, (event, analysis) in enumerate(high_risk_pairs):
         body += f"""
 [{event.get('risk')}] OLAY #{i+1}
-Kullanıcı    : {event.get('user', '-')}
+Detection    : {event.get('detection_type', '-')}
+Kullanici    : {event.get('user', '-')}
+Makine       : {event.get('host', '-')}
 Kaynak IP    : {event.get('src_ip', '-')}
-Hedef Makine : {event.get('host', '-')}
-Başarısız    : {event.get('failures', '0')}
-Başarılı     : {event.get('successes', '0')}
-
-AI ANALİZİ:
+MITRE Teknik : {event.get('mitre', {}).get('technique_id', '-') if isinstance(event.get('mitre'), dict) else '-'}
+AI ANALIZI:
 {analysis}
-
 {'-'*60}
 """
 
