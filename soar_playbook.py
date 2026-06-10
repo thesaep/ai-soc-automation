@@ -1,3 +1,4 @@
+import re
 import smtplib
 import json
 import os
@@ -9,6 +10,11 @@ import time
 from incident_logger import log_incident_v2
 
 load_dotenv()
+
+
+def _get_technique_id(detection_type):
+    m = re.search(r"T\d{4}(?:\.\d{3})?", detection_type)
+    return m.group(0) if m else "-"
 
 def send_email_alert(events, ai_analyses):
     """
@@ -43,7 +49,7 @@ Detection    : {event.get('detection_type', '-')}
 Kullanici    : {event.get('user', '-')}
 Makine       : {event.get('host', '-')}
 Kaynak IP    : {event.get('src_ip', '-')}
-MITRE Teknik : {event.get('mitre', {}).get('technique_id', '-') if isinstance(event.get('mitre'), dict) else '-'}
+MITRE Teknik : {_get_technique_id(event.get('detection_type',''))}
 AI ANALIZI:
 {analysis}
 {'-'*60}
@@ -128,6 +134,23 @@ if __name__ == "__main__":
                       f"{karar:<12} | {neden}")
 
             escalate_events = triage["escalate"]
+	    # Unique filtre: aynı detection_type + user kombinasyonu varsa sadece birini analiz et
+            # Duplike olaylar token israfı yaratır — tekilleştir, geri kalanları autolog'a taşı
+            seen = set()
+            unique_escalate = []
+            duplicate_escalate = []
+            for ev in escalate_events:
+                key = (ev.get('detection_type', ''), ev.get('user', ''))
+                if key not in seen:
+                    seen.add(key)
+                    unique_escalate.append(ev)
+                else:
+                    duplicate_escalate.append(ev)
+            if duplicate_escalate:
+                print(f"  [i] {len(duplicate_escalate)} duplike olay AUTO-LOG'a tasindi "
+                      f"(ayni detection+user, token tasarrufu)")
+            autolog_events = autolog_events + duplicate_escalate
+            escalate_events = unique_escalate
             autolog_events = triage["autolog"]
 
             # L4: Sadece ESCALATE olanlar Claude'a gider
