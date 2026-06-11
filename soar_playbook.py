@@ -148,7 +148,7 @@ if __name__ == "__main__":
                     duplicate_escalate.append(ev)
             if duplicate_escalate:
                 print(f"  [i] {len(duplicate_escalate)} duplike olay AUTO-LOG'a tasindi "
-                      f"(ayni detection+user, token tasarrufu)")
+                      f"— ayni teknik+kullanici kombinasyonu zaten analiz edildi (token tasarrufu)")
             autolog_events = triage["autolog"]
             autolog_events = autolog_events + duplicate_escalate
             escalate_events = unique_escalate
@@ -176,7 +176,11 @@ if __name__ == "__main__":
                     all_incidents = json.load(f)
             except Exception:
                 all_incidents = []
-            chains = correlate_incidents(all_incidents, time_window_minutes=60)
+            # Korelasyon için sadece son 7 günün incident'larını kullan — performans optimizasyonu
+            from datetime import datetime, timezone, timedelta
+            cutoff = (datetime.now(timezone.utc) - timedelta(days=7)).isoformat()
+            recent_incidents = [i for i in all_incidents if i.get("timestamp", "") >= cutoff]
+        chains = correlate_incidents(recent_incidents, time_window_minutes=60)
 
         if chains:
             print(f"\n{'='*65}")
