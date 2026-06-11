@@ -1,1 +1,1 @@
-source="WinEventLog:Microsoft-Windows-Sysmon/Operational" EventCode=8 NOT SourceImage="*splunk*" NOT TargetImage="*splunk*" NOT SourceImage="*csrss*" NOT SourceImage="*wininit*" | table SourceImage,TargetImage,StartAddress,StartModule,User,ComputerName
+source="WinEventLog:Microsoft-Windows-Sysmon/Operational" EventCode=8 NOT SourceImage="*splunk*" NOT TargetImage="*splunk*" NOT SourceImage="*csrss*" NOT SourceImage="*wininit*" | table SourceImage,TargetImage,StartAddress,StartModule,SourceUser,User,ComputerName

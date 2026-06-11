@@ -59,7 +59,7 @@ def normalize_event(event):
     """
     # Ortak şema → bu field aday listesinden ilk dolu olanı alır
     field_map = {
-        "user":   ["Account_Name", "user", "TargetUserName", "Network_Account_Name", "User"],
+        "user": ["Account_Name", "user", "TargetUserName", "Network_Account_Name", "User", "SourceUser"],
         "domain": ["Account_Domain", "domain", "TargetDomainName", "Network_Account_Domain"],
         "host":   ["ComputerName", "host"],
         "src_ip": ["Source_Network_Address", "src_ip", "IpAddress"],
@@ -79,10 +79,15 @@ def normalize_event(event):
         # Hiçbiri yoksa '-' ata (downstream kod KeyError almasın)
         if not found:
             event[norm_key] = "-"
-	# Sysmon User field'ı "DOMAIN\username" formatında gelebilir — sadece username al
-        if event.get("user") and "\\" in str(event.get("user", "")):
-            event["user"] = event["user"].split("\\")[-1]
-
+    # NOT_TRANSLATED ise SourceUser'dan al
+    if event.get("user") in ("NOT_TRANSLATED", "-", None, ""):
+        su = event.get("SourceUser", "")
+        if su and su not in ("NOT_TRANSLATED", "-", ""):
+            event["user"] = su
+    # Sysmon User field'ı "DOMAIN\username" formatında gelebilir — sadece username al
+    if event.get("user") and "\\" in str(event.get("user", "")):
+        event["user"] = event["user"].split("\\")[-1]
+    
     return event
 
 

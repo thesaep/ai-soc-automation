@@ -149,9 +149,9 @@ if __name__ == "__main__":
             if duplicate_escalate:
                 print(f"  [i] {len(duplicate_escalate)} duplike olay AUTO-LOG'a tasindi "
                       f"(ayni detection+user, token tasarrufu)")
+            autolog_events = triage["autolog"]
             autolog_events = autolog_events + duplicate_escalate
             escalate_events = unique_escalate
-            autolog_events = triage["autolog"]
 
             # L4: Sadece ESCALATE olanlar Claude'a gider
             if escalate_events:
