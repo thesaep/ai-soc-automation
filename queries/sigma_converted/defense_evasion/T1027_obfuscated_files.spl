@@ -1,0 +1,1 @@
+source="WinEventLog:Microsoft-Windows-Sysmon/Operational" EventCode=1 (CommandLine="*certutil*-decode*" OR CommandLine="*FromBase64String*" OR CommandLine="*base64*" OR CommandLine="*certutil*-encode*") NOT CommandLine="*splunk*" | table Image,CommandLine,User,ParentImage,ProcessId,ComputerName

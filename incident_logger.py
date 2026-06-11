@@ -60,6 +60,12 @@ def _extract_mitre_mapping(event: dict) -> dict:
         "T1003": "Credential Access",
         "T1136": "Persistence",
         "T1098": "Persistence",
+	"T1547": "Persistence",
+        "T1562": "Defense Evasion",
+        "T1105": "Command and Control",
+        "T1055": "Defense Evasion",
+        "T1027": "Defense Evasion",
+        "T1021": "Lateral Movement",
     }
     tactic = tactic_map.get(technique_id)
     if not tactic:
@@ -120,6 +126,12 @@ def _resolve_spl_file(event: dict) -> str:
         "T1003": "queries/sigma_converted/credential_access/T1003_lsass_dump.spl",
         "T1136": "queries/sigma_converted/persistence/T1136_local_account.spl",
         "T1098": "queries/sigma_converted/persistence/T1098_account_manipulation.spl",
+	"T1547": "queries/sigma_converted/persistence/T1547_registry_run_keys.spl",
+        "T1562": "queries/sigma_converted/defense_evasion/T1562_disable_defender.spl",
+        "T1105": "queries/sigma_converted/command_and_control/T1105_ingress_tool_transfer.spl",
+        "T1055": "queries/sigma_converted/defense_evasion/T1055_process_injection.spl",
+        "T1027": "queries/sigma_converted/defense_evasion/T1027_obfuscated_files.spl",
+        "T1021": "queries/sigma_converted/lateral_movement/T1021_rdp.spl",
     }
     detection_type = event.get("detection_type", "")
     for key, path in detection_map.items():

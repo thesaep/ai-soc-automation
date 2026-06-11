@@ -29,6 +29,12 @@ TECHNIQUE_WEIGHT = {
     "T1012": 3,    # Registry Query — düşük, rutin recon
     "T1136": 12,   # Local Account Create — persistence
     "T1098": 12,   # Account Manipulation — persistence
+    "T1547": 12,   # Registry Run Keys — persistence
+    "T1562": 15,   # Disable Defender — defense evasion, kritik
+    "T1105": 8,    # Ingress Tool Transfer — araç indirme
+    "T1055": 20,   # Process Injection — en tehlikeli tekniklerden
+    "T1027": 5,    # Obfuscated Files — evasion ama yaygın
+    "T1021": 10,   # RDP Lateral Movement
 }
 
 # Kritik asset listesi. Bu host'lardaki olaylar daha yüksek öncelik alır.

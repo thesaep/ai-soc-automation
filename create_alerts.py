@@ -121,6 +121,48 @@ alerts = [
         "severity": "high",
         "cron": "*/5 * * * *"
     },
+    {
+        "name": "MITRE T1547 - Registry Run Keys",
+        "file": "persistence/T1547_registry_run_keys.spl",
+        "severity": "medium",
+        "cron": "*/5 * * * *"
+    },
+    {
+        "name": "MITRE T1562 - Disable Defender",
+        "file": "defense_evasion/T1562_disable_defender.spl",
+        "severity": "high",
+        "cron": "*/5 * * * *"
+    },
+    {
+        "name": "MITRE T1105 - Ingress Tool Transfer",
+        "file": "command_and_control/T1105_ingress_tool_transfer.spl",
+        "severity": "medium",
+        "cron": "*/5 * * * *"
+    },
+    {
+        "name": "MITRE T1059 - PowerShell Obfuscation",
+        "file": "execution/T1059_powershell.spl",
+        "severity": "high",
+        "cron": "*/5 * * * *"
+    },
+    {
+        "name": "MITRE T1055 - Process Injection",
+        "file": "defense_evasion/T1055_process_injection.spl",
+        "severity": "critical",
+        "cron": "*/5 * * * *"
+    },
+    {
+        "name": "MITRE T1027 - Obfuscated Files",
+        "file": "defense_evasion/T1027_obfuscated_files.spl",
+        "severity": "medium",
+        "cron": "*/5 * * * *"
+    },
+    {
+        "name": "MITRE T1021 - RDP Lateral Movement",
+        "file": "lateral_movement/T1021_rdp.spl",
+        "severity": "high",
+        "cron": "*/5 * * * *"
+    },
 ]
 
 # SPL dosyalarının bulunduğu dizin

@@ -242,7 +242,22 @@ def get_all_mitre_events(service, earliest="-5m"):
         ("T1136.001 Create Local Account",
          "queries/sigma_converted/persistence/T1136_local_account.spl", "HIGH"),
         ("T1098 Account Manipulation",
-         "queries/sigma_converted/persistence/T1098_account_manipulation.spl", "HIGH"),	
+         "queries/sigma_converted/persistence/T1098_account_manipulation.spl", "HIGH"),
+	# Faz 6 Genişletme — 7 yeni detection
+        ("T1547.001 Registry Run Keys",
+         "queries/sigma_converted/persistence/T1547_registry_run_keys.spl", "MEDIUM"),
+        ("T1562.001 Disable Defender",
+         "queries/sigma_converted/defense_evasion/T1562_disable_defender.spl", "HIGH"),
+        ("T1105 Ingress Tool Transfer",
+         "queries/sigma_converted/command_and_control/T1105_ingress_tool_transfer.spl", "MEDIUM"),
+        ("T1059.001 PowerShell Obfuscation",
+         "queries/sigma_converted/execution/T1059_powershell.spl", "HIGH"),
+        ("T1055 Process Injection",
+         "queries/sigma_converted/defense_evasion/T1055_process_injection.spl", "CRITICAL"),
+        ("T1027 Obfuscated Files",
+         "queries/sigma_converted/defense_evasion/T1027_obfuscated_files.spl", "MEDIUM"),
+        ("T1021.001 RDP Lateral Movement",
+         "queries/sigma_converted/lateral_movement/T1021_rdp.spl", "HIGH"),	
     ]
 
     all_events = []

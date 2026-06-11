@@ -1,0 +1,1 @@
+source="WinEventLog:Security" EventCode=4624 Logon_Type=10 NOT Account_Name="*$" NOT Account_Name="-" | table _time,Account_Name,Source_Network_Address,Logon_Type,ComputerName
