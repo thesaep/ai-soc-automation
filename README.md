@@ -29,7 +29,7 @@ Universal Forwarder ──► Ubuntu VM (Splunk Enterprise — index-time field 
         │
         ▼   ┌─────────────────────────────────────────────┐
             │ L3  Semantic Retrieval — case memory        │
-            │     (planned, Phase 8 — ChromaDB)           │
+            │     (planned, next phases — ChromaDB)           │
             └─────────────────────────────────────────────┘
         │
         ▼   ┌─────────────────────────────────────────────┐
@@ -151,7 +151,7 @@ score = severity_base
 ![SOAR Pipeline](screenshots/soar_pipeline3.png)
 ![SOAR Pipeline](screenshots/soar_pipeline4.png)
 ![SOAR Pipeline](screenshots/soar_pipeline7.png)
-The orchestration layer runs all 25 MITRE detections, scores each event through L2 triage, and sends only ESCALATE events to Claude AI. Severity banners (CRITICAL / HIGH) drive the response actions.
+The orchestration layer runs all 25 MITRE detections and Brute Force, scores each event through L2 triage, and sends only ESCALATE events to Claude AI. Severity banners (CRITICAL / HIGH) drive the response actions.
 
 ### Cascading Triage — Score-Based Routing
 ![Triage](screenshots/triage_scoring.png)
