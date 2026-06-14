@@ -2,3 +2,7 @@
 logs/
 __pycache__/
 *.pyc
+
+evtx_samples/
+sigma_repo/
+*.bak
