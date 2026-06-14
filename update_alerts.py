@@ -3,14 +3,12 @@ import urllib3
 import os
 from dotenv import load_dotenv
 
-# .env dosyasından değişkenleri yükle
 load_dotenv()
-
 urllib3.disable_warnings()
 
-# Credentials .env'den okunuyor, koda yazılmıyor
 SPLUNK_URL = os.getenv("SPLUNK_URL", "https://localhost:8089")
 AUTH = (os.getenv("SPLUNK_USERNAME"), os.getenv("SPLUNK_PASSWORD"))
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 
 # 6=fatal(critical), 5=severe(high), 4=error(medium), 3=warn(low)
 alerts = [
@@ -36,13 +34,15 @@ alerts = [
         "name": "MITRE T1059 - Obfuscation via MSHTA",
         "severity": "5",
         "description": "MITRE T1059 - Execution: Adversary uses mshta.exe (detected via OriginalFileName=MSHTA.EXE) to execute obfuscated VBScript/JavaScript payloads. Rename-resistant detection.",
-        "expires": "24h"
+        "expires": "24h",
+        "spl_file": "queries/sigma_converted/execution/T1059_obfuscation_mshta.spl"
     },
     {
         "name": "MITRE T1059 - Obfuscation via Rundll32",
         "severity": "5",
         "description": "MITRE T1059 - Execution: Adversary uses rundll32.exe (detected via OriginalFileName=RUNDLL32.EXE) to execute obfuscated JavaScript/shellcode payloads. Rename-resistant detection.",
-        "expires": "24h"
+        "expires": "24h",
+        "spl_file": "queries/sigma_converted/execution/T1059_obfuscation_rundll32.spl"
     },
     {
         "name": "MITRE T1059 - Obfuscation via Stdin",
@@ -85,18 +85,36 @@ alerts = [
 labels = {"6": "CRITICAL", "5": "HIGH", "4": "MEDIUM", "3": "LOW"}
 
 for alert in alerts:
+    # SPL dosyası tanımlıysa oku, yoksa None
+    spl_content = None
+    if "spl_file" in alert:
+        spl_path = os.path.join(BASE_DIR, alert["spl_file"])
+        try:
+            with open(spl_path, "r") as f:
+                spl_content = f.read().strip()
+        except FileNotFoundError:
+            print(f"[!] SPL dosyası bulunamadı: {spl_path}")
+            continue
+
+    data = {
+        "alert.severity": alert["severity"],
+        "alert.expires": alert["expires"],
+        "description": alert["description"],
+    }
+
+    # SPL varsa ekle
+    if spl_content:
+        data["search"] = spl_content
+
     resp = requests.post(
         f"{SPLUNK_URL}/servicesNS/splunk/search/saved/searches/{requests.utils.quote(alert['name'])}",
         auth=AUTH,
-        data={
-            "alert.severity": alert["severity"],
-            "alert.expires": alert["expires"],
-            "description": alert["description"],
-        },
+        data=data,
         verify=False
     )
+
     if resp.status_code == 200:
-        print(f"[+] {labels[alert['severity']]:8} → {alert['name']}")
+        spl_tag = " + SPL" if spl_content else ""
+        print(f"[+] {labels[alert['severity']]:8} → {alert['name']}{spl_tag}")
     else:
         print(f"[!] Hata ({resp.status_code}): {alert['name']} — {resp.text[:80]}")
-
