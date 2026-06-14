@@ -35,13 +35,13 @@ alerts = [
     {
         "name": "MITRE T1059 - Obfuscation via MSHTA",
         "severity": "5",
-        "description": "MITRE T1059 - Execution: Adversary uses mshta.exe to execute obfuscated scripts via Windows services.",
+        "description": "MITRE T1059 - Execution: Adversary uses mshta.exe (detected via OriginalFileName=MSHTA.EXE) to execute obfuscated VBScript/JavaScript payloads. Rename-resistant detection.",
         "expires": "24h"
     },
     {
         "name": "MITRE T1059 - Obfuscation via Rundll32",
         "severity": "5",
-        "description": "MITRE T1059 - Execution: Adversary uses rundll32.exe to execute obfuscated payloads.",
+        "description": "MITRE T1059 - Execution: Adversary uses rundll32.exe (detected via OriginalFileName=RUNDLL32.EXE) to execute obfuscated JavaScript/shellcode payloads. Rename-resistant detection.",
         "expires": "24h"
     },
     {

@@ -38,7 +38,7 @@
   "T1059": {
     "name": "Command and Scripting Interpreter",
     "tactic": "Execution",
-    "description": "Adversary uses obfuscated scripts via mshta.exe, rundll32.exe, or stdin to execute malicious code. Indicator: EventCode=7045 with suspicious ImagePath patterns.",
+    "description": "Adversary uses LOLBins (mshta.exe, rundll32.exe) to execute obfuscated VBScript/JavaScript payloads. Detection via Sysmon EventCode=1 OriginalFileName matching (MSHTA.EXE, RUNDLL32.EXE) — rename-resistant.",
     "response": "Terminate the malicious service. Investigate what the script executed. Check for additional payloads dropped."
   },
   "brute_force": {
