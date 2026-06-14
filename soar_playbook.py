@@ -180,7 +180,7 @@ if __name__ == "__main__":
             from datetime import datetime, timezone, timedelta
             cutoff = (datetime.now(timezone.utc) - timedelta(days=7)).isoformat()
             recent_incidents = [i for i in all_incidents if i.get("timestamp", "") >= cutoff]
-        chains = correlate_incidents(recent_incidents, time_window_minutes=60)
+        chains = correlate_incidents(recent_incidents, time_window_minutes=240) # 4h — APT lateral movement kapsamı genişletildi (Faz 6 sonrası)
 
         if chains:
             print(f"\n{'='*65}")
