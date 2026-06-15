@@ -105,8 +105,30 @@ if __name__ == "__main__":
             print(f"{'='*65}")
             triage = triage_events(all_events, chains=prelim_chains)
             print(format_triage_summary(triage))
+            escalate_events = triage["escalate"]
+	    # Unique filtre: aynı detection_type + user kombinasyonu varsa sadece birini analiz et
+            # Duplike olaylar token israfı yaratır — tekilleştir, geri kalanları autolog'a taşı
+            seen = set()
+            unique_escalate = []
+            duplicate_escalate = []
+            for ev in escalate_events:
+                key = (ev.get('detection_type', ''), ev.get('user', ''))
+                if key not in seen:
+                    seen.add(key)
+                    unique_escalate.append(ev)
+                else:
+                    duplicate_escalate.append(ev)
+            if duplicate_escalate:
+                print(f"  [i] {len(duplicate_escalate)} duplike olay AUTO-LOG'a tasindi "
+                      f"— ayni teknik+kullanici kombinasyonu zaten analiz edildi (token tasarrufu)")
+            autolog_events = triage["autolog"] + duplicate_escalate
+            escalate_events = unique_escalate
+            _duplicate_ids = {id(ev) for ev in duplicate_escalate}
             for i, (ev, sc) in enumerate(zip(all_events, triage["scores"]), 1):
-                karar = {"ESCALATE": "-> L4-CLAUDE", "MONITOR": "-> IZLE", "SUPPRESS": "-> AUTO-LOG"}.get(sc["verdict"], sc["verdict"])
+                if sc["verdict"] == "ESCALATE" and id(ev) in _duplicate_ids:
+                    karar = "-> DUPLIKE-LOG"
+                else:
+                    karar = {"ESCALATE": "-> L4-CLAUDE", "MONITOR": "-> IZLE", "SUPPRESS": "-> AUTO-LOG"}.get(sc["verdict"], sc["verdict"])
                 # Skor bileşenlerini anlamlı açıklamaya çevir
                 neden_parts = []
                 if "severity_base" in sc["components"]:
@@ -133,25 +155,7 @@ if __name__ == "__main__":
                       f"Skor:{sc['score']:3}/100 | "
                       f"{karar:<12} | {neden}")
 
-            escalate_events = triage["escalate"]
-	    # Unique filtre: aynı detection_type + user kombinasyonu varsa sadece birini analiz et
-            # Duplike olaylar token israfı yaratır — tekilleştir, geri kalanları autolog'a taşı
-            seen = set()
-            unique_escalate = []
-            duplicate_escalate = []
-            for ev in escalate_events:
-                key = (ev.get('detection_type', ''), ev.get('user', ''))
-                if key not in seen:
-                    seen.add(key)
-                    unique_escalate.append(ev)
-                else:
-                    duplicate_escalate.append(ev)
-            if duplicate_escalate:
-                print(f"  [i] {len(duplicate_escalate)} duplike olay AUTO-LOG'a tasindi "
-                      f"— ayni teknik+kullanici kombinasyonu zaten analiz edildi (token tasarrufu)")
-            autolog_events = triage["autolog"]
-            autolog_events = autolog_events + duplicate_escalate
-            escalate_events = unique_escalate
+
 
             # L4: Sadece ESCALATE olanlar Claude'a gider
             if escalate_events:
