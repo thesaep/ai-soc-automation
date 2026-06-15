@@ -193,7 +193,7 @@ KURALLAR:
 
     # Response'u "OLAY #N:" başlıklarına göre böl
     import re
-    parts = re.split(r'OLAY\s*#\d+\s*:?\s*', raw_response.strip())
+    parts = re.split(r'(?m)^OLAY\s*#\d+\s*:?\s*', raw_response.strip())
     parts = [p.strip() for p in parts if p.strip()]
 
     # Parse başarısızsa fallback
