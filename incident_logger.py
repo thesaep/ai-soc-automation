@@ -208,9 +208,39 @@ def log_incident_v2(events: list, ai_analyses: list) -> list:
     prev_hash = existing_logs[-1].get("hash", "genesis") if existing_logs else "genesis"
 
     incident_ids = []
-
+    # Aggregation için son 5 dakikadaki kayıtların hızlı lookup'ı
+    from datetime import datetime, timezone, timedelta
+    _now = datetime.now(timezone.utc)
+    _agg_window = timedelta(minutes=5)
+    _recent_keys = {}
+    for i, inc in enumerate(existing_logs):
+        try:
+            ts = datetime.fromisoformat(inc.get("timestamp","").replace("Z","+00:00"))
+            if _now - ts < _agg_window:
+                _agg_key = (
+                    inc.get("mitre",{}).get("technique_name",""),
+                    inc.get("entity",{}).get("user",""),
+                    inc.get("entity",{}).get("host","")
+                )
+                _recent_keys[_agg_key] = i  # son index'i tut
+        except:
+            pass
     for event, analysis in zip(events, ai_analyses):
         try:
+            # Aggregation kontrolü
+            _ev_key = (
+                event.get("detection_type",""),
+                event.get("user",""),
+                event.get("host","")
+            )
+            if _ev_key in _recent_keys:
+                _idx = _recent_keys[_ev_key]
+                existing_logs[_idx].setdefault("metrics", {})["count"] = existing_logs[_idx]["metrics"].get("count", 1) + 1
+                existing_logs[_idx]["metrics"]["last_seen"] = _now.isoformat()
+                incident_ids.append(existing_logs[_idx]["incident_id"])
+                print(f"  [~] Aggregated | ID: {existing_logs[_idx]['incident_id'][:8]}... "
+                      f"| {_ev_key[0][:30]} | count: {existing_logs[_idx]['metrics']['count']}")
+                continue
             # build_incident yerine direkt burada hash zincirini yönet
             incident = _build_incident_with_hash(event, analysis, prev_hash)
             existing_logs.append(incident)

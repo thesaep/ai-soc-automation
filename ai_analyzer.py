@@ -283,7 +283,16 @@ def analyze_chain_with_claude(chain: dict, return_result: bool = False):
 
     # Zincirdeki her olayı prompt'a ekle
     incident_blocks = []
-    for i, inc in enumerate(incidents, 1):
+    # Token optimizasyonu: max 20 incident gönder, fazlasını özetle
+    MAX_INCIDENTS = 20
+    if len(incidents) > MAX_INCIDENTS:
+        sampled = incidents[:5] + incidents[len(incidents)//2-2:len(incidents)//2+3] + incidents[-5:]
+        skipped = len(incidents) - len(sampled)
+    else:
+        sampled = incidents
+        skipped = 0
+    incidents_to_use = sampled
+    for i, inc in enumerate(incidents_to_use, 1):
         entity  = inc.get("entity", {})
         mitre   = inc.get("mitre", {})
         trace   = inc.get("pipeline_trace", {})
@@ -301,6 +310,8 @@ def analyze_chain_with_claude(chain: dict, return_result: bool = False):
         incident_blocks.append(block)
 
     combined = "\n\n".join(incident_blocks)
+    if skipped > 0:
+        combined += f"\n\n[NOT: Token optimizasyonu — {skipped} tekrarlayan olay özetlendi, toplam {len(incidents)} olaydan {len(incidents_to_use)} temsili örnek gösterildi]"
 
     # Kill-chain özeti
     tactics_str   = " -> ".join(chain.get("tactics", []))
