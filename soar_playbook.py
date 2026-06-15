@@ -124,12 +124,27 @@ if __name__ == "__main__":
             autolog_events = triage["autolog"] + duplicate_escalate
             escalate_events = unique_escalate
             _duplicate_ids = {id(ev) for ev in duplicate_escalate}
-            for i, (ev, sc) in enumerate(zip(all_events, triage["scores"]), 1):
-                if sc["verdict"] == "ESCALATE" and id(ev) in _duplicate_ids:
+            # Triage print — aynı (detection, user, host) kombinasyonunu aggregated göster
+            from collections import OrderedDict
+            _print_groups = OrderedDict()
+            for _ev, _sc in zip(all_events, triage["scores"]):
+                _pk = (_ev.get("detection_type",""), _ev.get("user",""), _ev.get("host",""))
+                if _pk not in _print_groups:
+                    _print_groups[_pk] = {"ev": _ev, "sc": _sc, "count": 1, "is_dup": id(_ev) in _duplicate_ids}
+                else:
+                    _print_groups[_pk]["count"] += 1
+                    if id(_ev) in _duplicate_ids:
+                        _print_groups[_pk]["is_dup"] = True
+            _i = 0
+            for _pk, _grp in _print_groups.items():
+                _i += 1
+                ev, sc = _grp["ev"], _grp["sc"]
+                count = _grp["count"]
+                count_str = f" x{count}" if count > 1 else ""
+                if sc["verdict"] == "ESCALATE" and _grp.get("is_dup", False):
                     karar = "-> DUPLIKE-LOG"
                 else:
                     karar = {"ESCALATE": "-> L4-CLAUDE", "MONITOR": "-> IZLE", "SUPPRESS": "-> AUTO-LOG"}.get(sc["verdict"], sc["verdict"])
-                # Skor bileşenlerini anlamlı açıklamaya çevir
                 neden_parts = []
                 if "severity_base" in sc["components"]:
                     risk = ev.get("risk", "-")
@@ -151,10 +166,9 @@ if __name__ == "__main__":
                 if "chain_member" in sc["components"]:
                     neden_parts.append(f"kill-chain uyesi")
                 neden = " | ".join(neden_parts)
-                print(f"  #{i:<2} {ev.get('detection_type','?')[:35]:<35} | "
+                print(f"  #{_i:<2} {ev.get('detection_type','?')[:35]:<35} | "
                       f"Skor:{sc['score']:3}/100 | "
-                      f"{karar:<12} | {neden}")
-
+                      f"{karar:<14}{count_str:<6} | {neden}")
 
 
             # L4: Sadece ESCALATE olanlar Claude'a gider
