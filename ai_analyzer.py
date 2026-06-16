@@ -185,7 +185,7 @@ KURALLAR:
 
     message = client.messages.create(
         model="claude-sonnet-4-6",
-        max_tokens=max(1000, len(events) * 600),
+        max_tokens=max(1500, len(events) * 1000),
         messages=[{"role": "user", "content": prompt}]
     )
 

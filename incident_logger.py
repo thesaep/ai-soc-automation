@@ -213,6 +213,15 @@ def log_incident_v2(events: list, ai_analyses: list) -> list:
     _now = datetime.now(timezone.utc)
     _agg_window = timedelta(minutes=5)
     _recent_keys = {}
+    # Idempotency: aynı (detection, user, host, dakika) daha önce loglandıysa atla
+    _logged_keys = set()
+    for inc in existing_logs:
+        _logged_keys.add((
+            inc.get("mitre", {}).get("technique_name", ""),
+            inc.get("entity", {}).get("user", ""),
+            inc.get("entity", {}).get("host", ""),
+            inc.get("timestamp", "")[:16]
+        ))
     for i, inc in enumerate(existing_logs):
         try:
             ts = datetime.fromisoformat(inc.get("timestamp","").replace("Z","+00:00"))
@@ -227,6 +236,16 @@ def log_incident_v2(events: list, ai_analyses: list) -> list:
             pass
     for event, analysis in zip(events, ai_analyses):
         try:
+            # Idempotency kontrolü
+            _ev_ikey = (
+                event.get("detection_type", ""),
+                event.get("user", ""),
+                event.get("host", ""),
+                event.get("timestamp", "")[:16]
+            )
+            if _ev_ikey in _logged_keys:
+                continue
+            _logged_keys.add(_ev_ikey)
             # Aggregation kontrolü
             _ev_key = (
                 event.get("detection_type",""),

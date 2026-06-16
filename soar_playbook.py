@@ -104,7 +104,6 @@ if __name__ == "__main__":
             print(f"  [TRIAGE]  L2 CASCADING TRIAGE")
             print(f"{'='*65}")
             triage = triage_events(all_events, chains=prelim_chains)
-            print(format_triage_summary(triage))
             escalate_events = triage["escalate"]
 	    # Unique filtre: aynı detection_type + user kombinasyonu varsa sadece birini analiz et
             # Duplike olaylar token israfı yaratır — tekilleştir, geri kalanları autolog'a taşı
@@ -124,17 +123,27 @@ if __name__ == "__main__":
             autolog_events = triage["autolog"] + duplicate_escalate
             escalate_events = unique_escalate
             _duplicate_ids = {id(ev) for ev in duplicate_escalate}
+            # Unique filtre sonrası doğru stats özeti
+            _total = len(all_events)
+            _esc_unique = len(unique_escalate)
+            _esc_dup = len(duplicate_escalate)
+            _autolog = len(triage["autolog"])
+            _esc_rate = int((_esc_unique / _total * 100)) if _total > 0 else 0
+            print(f"L2 TRIAGE: {_total} olay degerlendirildi")
+            print(f"  -> ESCALATE (L4 Claude): {_esc_unique} olay (+ {_esc_dup} duplike AUTO-LOG'a tasindi)")
+            print(f"  -> AUTO-LOG (L2):        {_autolog} olay")
+            print(f"  -> Escalation rate:      %{_esc_rate}")
             # Triage print — aynı (detection, user, host) kombinasyonunu aggregated göster
             from collections import OrderedDict
             _print_groups = OrderedDict()
             for _ev, _sc in zip(all_events, triage["scores"]):
                 _pk = (_ev.get("detection_type",""), _ev.get("user",""), _ev.get("host",""))
+                # Tüm kararlar (ESCALATE dahil) aynı (detection,user,host) key ile aggrege edilir
+                # is_dup flag'i ile print sırasında L4-CLAUDE vs DUPLIKE-LOG ayrımı yapılır
                 if _pk not in _print_groups:
-                    _print_groups[_pk] = {"ev": _ev, "sc": _sc, "count": 1, "is_dup": id(_ev) in _duplicate_ids}
+                    _print_groups[_pk] = {"ev": _ev, "sc": _sc, "count": 1, "is_dup": False}
                 else:
                     _print_groups[_pk]["count"] += 1
-                    if id(_ev) in _duplicate_ids:
-                        _print_groups[_pk]["is_dup"] = True
             _i = 0
             for _pk, _grp in _print_groups.items():
                 _i += 1
@@ -198,14 +207,14 @@ if __name__ == "__main__":
             from datetime import datetime, timezone, timedelta
             cutoff = (datetime.now(timezone.utc) - timedelta(days=7)).isoformat()
             recent_incidents = [i for i in all_incidents if i.get("timestamp", "") >= cutoff]
-        chains = correlate_incidents(recent_incidents, time_window_minutes=240) # 4h — APT lateral movement kapsamı genişletildi (Faz 6 sonrası)
+            chains = correlate_incidents(recent_incidents, time_window_minutes=240) # 4h — APT lateral movement kapsamı genişletildi (Faz 6 sonrası)
 
-        if chains:
-            print(f"\n{'='*65}")
-            print(f"  [CHAIN] KORELASYON: {len(all_incidents)} olay ({len(all_events)} yeni) -> {len(chains)} zincir")
-            print(f"{'='*65}")
-            # Sadece yeni incident_id'leri içeren zincirleri derin analiz et
-            # Geçmiş zincirler zaten analiz edilmişti — duplikasyonu önler
+            if chains:
+                print(f"\n{'='*65}")
+                print(f"  [CHAIN] KORELASYON: {len(all_incidents)} olay ({len(all_events)} yeni) -> {len(chains)} zincir")
+                print(f"{'='*65}")
+                # Sadece yeni incident_id'leri içeren zincirleri derin analiz et
+                # Geçmiş zincirler zaten analiz edilmişti — duplikasyonu önler
         
             new_ids = set(incident_ids)
             for chain in chains:
@@ -220,7 +229,7 @@ if __name__ == "__main__":
                     print(f"\n  {risk_icon} {chain['chain_risk']:<8} {chain['chain_id']} | {chain['incident_count']} olay | {tactics}")
         
         # Email: yüksek riskli olaylar
-            send_email_alert(combined_events, combined_analyses)
+            send_email_alert(escalate_events, ai_analyses)  # Sadece ESCALATE olaylar
 
             # Özet rapor — LOW/MEDIUM auto-log olayları
             if autolog_events:
