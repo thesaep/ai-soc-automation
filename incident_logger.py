@@ -216,12 +216,16 @@ def log_incident_v2(events: list, ai_analyses: list) -> list:
     # Idempotency: aynı (detection, user, host, dakika) daha önce loglandıysa atla
     _logged_keys = set()
     for inc in existing_logs:
-        _logged_keys.add((
-            inc.get("mitre", {}).get("technique_name", ""),
-            inc.get("entity", {}).get("user", ""),
-            inc.get("entity", {}).get("host", ""),
-            inc.get("timestamp", "")[:16]
-        ))
+        try:
+            ts = datetime.fromisoformat(inc.get("timestamp","").replace("Z","+00:00"))
+            if _now - ts < timedelta(hours=8):   # 8h idempotency (SEARCH_EARLIEST=-3h, ~3x buffer)
+                _logged_keys.add((
+                    inc.get("mitre", {}).get("technique_name", ""),
+                    inc.get("entity", {}).get("user", ""),
+                    inc.get("entity", {}).get("host", "")
+                ))
+        except:
+            pass
     for i, inc in enumerate(existing_logs):
         try:
             ts = datetime.fromisoformat(inc.get("timestamp","").replace("Z","+00:00"))
@@ -240,10 +244,11 @@ def log_incident_v2(events: list, ai_analyses: list) -> list:
             _ev_ikey = (
                 event.get("detection_type", ""),
                 event.get("user", ""),
-                event.get("host", ""),
-                event.get("timestamp", "")[:16]
+                event.get("host", "")
             )
             if _ev_ikey in _logged_keys:
+                print(f"  [~] SKIPPED (8h idempotency) | {_ev_ikey[0]} | {_ev_ikey[1]}")
+                incident_ids.append(None)
                 continue
             _logged_keys.add(_ev_ikey)
             # Aggregation kontrolü
