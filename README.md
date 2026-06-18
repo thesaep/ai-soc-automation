@@ -190,9 +190,7 @@ Artifacts persist to `logs/artifacts.json` and support pivoting via `get_malicio
 
 > **Cache pays off immediately.** First sighting of an IP costs one API call (`[API]`); every reuse in the same or subsequent runs is free (`[CACHE]`). At scale, where scanning IPs recur constantly, this keeps the pipeline inside free-tier quotas.
 
-```
-
- Tech Stack
+## Tech Stack
 
 | Component | Technology |
 |-----------|------------|
@@ -209,9 +207,9 @@ Artifacts persist to `logs/artifacts.json` and support pivoting via `get_malicio
 
 ---
 
- Screenshots
+## Screenshots
 
-SOAR Pipeline — Cascading Triage + Multi-Detection Analysis
+### SOAR Pipeline — Cascading Triage + Multi-Detection Analysis
 ![SOAR Pipeline](screenshots/soar_pipeline1.png)
 ![SOAR Pipeline](screenshots/soar_pipeline2.png)
 ![SOAR Pipeline](screenshots/soar_pipeline3.png)
@@ -219,29 +217,29 @@ SOAR Pipeline — Cascading Triage + Multi-Detection Analysis
 ![SOAR Pipeline](screenshots/soar_pipeline7.png)
 The orchestration layer runs all 25 MITRE detections and Brute Force, scores each event through L2 triage, and sends only ESCALATE events to Claude AI. Severity banners (CRITICAL / HIGH) drive the response actions.
 
-Cascading Triage — Score-Based Routing
+### Cascading Triage — Score-Based Routing
 ![Triage](screenshots/triage_scoring.png)
 Each event gets a 0–100 score with a breakdown (severity, technique weight, off-hours, kill-chain membership) and is routed to L4-CLAUDE / MONITOR / AUTO-LOG.
 
-Kill-Chain Correlation
+### Kill-Chain Correlation
 ![Kill-Chain](screenshots/kill_chain.png)
 Events on the same user/host are linked into a campaign and analyzed by Claude as a single intrusion (e.g. `Execution → Persistence → Defense Evasion → Command and Control`).
 
-Hash-Chain Incident Log
+### Hash-Chain Incident Log
 ![Hash-Chain](screenshots/hash_chain.png)
 Each incident is chained to the previous one via SHA-256. Tampering with any record breaks the chain.
 
-MITRE ATT&CK Alerts in Splunk
+### MITRE ATT&CK Alerts in Splunk
 ![MITRE Alerts](screenshots/mitre_alerts1.png)
 ![MITRE Alerts](screenshots/mitre_alerts2.png)
 All detections registered as scheduled alerts (every 5 minutes), with per-technique severity.
 
-Claude AI — Attack-Chain Analysis
+### Claude AI — Attack-Chain Analysis
 ![AI Analysis](screenshots/ai_analysis1.png)
 ![AI Analysis](screenshots/ai_analysis2.png)
 Claude analyzes each event with injected MITRE context and connects related events into a single coordinated intrusion.
 
-Attack Simulation — Atomic Red Team
+### Attack Simulation — Atomic Red Team
 ![Atomic Red Team](screenshots/atomic_red_team.png)
 Techniques simulated with Atomic Red Team and validated against the resulting Sysmon/Security telemetry in Splunk.
 
