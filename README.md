@@ -5,8 +5,11 @@ A modular SOC automation platform built with Splunk, Python, and Claude AI. Dete
 Each phase is documented on [Medium](https://erensaylan.medium.com/).
 
 > **Phase 1** detected brute force only.
+
 > **Phase 2** added index-time log normalization and a 12-rule MITRE ATT&CK detection engine, validated in a dedicated attack-simulation lab.
+
 > **Phase 3** turned it into a reasoning system: 25 detections, a score-based cascading triage layer, kill-chain correlation, and tamper-evident hash-chain logging.
+
 > **Phase 4** gave it context: artifact-driven IOC enrichment (AbuseIPDB + OTX), IOC-aware triage, trend-based escalation, and an L1 throttling layer for continuous operation.
 
 ---
