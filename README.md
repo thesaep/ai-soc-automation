@@ -180,7 +180,9 @@ Verdict mapping (max across sources): `risk_score ≥ 80` → malicious · `≥ 
 The same `T1078 External SMB Login`, scored three ways (off-hours bonus included):
 
 Artifact NONE:        53 → MONITOR
+
 Artifact SUSPICIOUS:  63 → ESCALATE
+
 Artifact MALICIOUS:   73 → ESCALATE
 
 Artifacts persist to `logs/artifacts.json` and support pivoting via `get_malicious_artifacts()`, `get_artifacts_by_incident()`, and `get_artifact_summary()`.
