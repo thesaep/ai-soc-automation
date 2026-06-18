@@ -39,6 +39,11 @@ Universal Forwarder ──► Ubuntu VM (Splunk Enterprise — index-time field 
             └─────────────────────────────────────────────┘
         │
         ▼   ┌─────────────────────────────────────────────┐
+            │ IOC Enrichment — AbuseIPDB + OTX            │
+            │     artifact-driven, cached → feeds L2 score│
+            └─────────────────────────────────────────────┘
+        │
+        ▼   ┌─────────────────────────────────────────────┐
             │ L3  Semantic Retrieval — case memory        │
             │     (planned, next phases — ChromaDB)       │
             └─────────────────────────────────────────────┘
@@ -149,6 +154,7 @@ score = severity_base
 
 ---
 
+<<<<<<< HEAD
 ## IOC Enrichment Layer
 
 Before an event is scored, its indicators are extracted and enriched against live threat intelligence. The design is artifact-driven: the indicator, not the event, is the unit of work.
@@ -162,6 +168,25 @@ Event → extract IOCs (IP / hash / domain)
       → Enrichment attached   {verdict, risk_score, sources, tags}
       → verdict feeds L2 triage score
 ```
+=======
+## IOC Enrichment Layer (Phase 7)
+
+Before an event is scored, its indicators are extracted and enriched against live threat intelligence. The design is **artifact-driven**: the indicator, not the event, is the unit of work.
+Event → extract IOCs (IP / hash / domain)
+
+→ Artifact created or updated   {type, value, first_seen, last_seen, seen_count, incident_ids}
+
+→ cache check (1h TTL)
+
+├── HIT  → reuse, zero API calls
+
+└── MISS → AbuseIPDB + OTX → cache
+
+→ Enrichment attached   {verdict, risk_score, sources, tags}
+
+→ verdict feeds L2 triage score
+
+>>>>>>> 00e1839 (docs: IOC Enrichment Layer + architecture diyagramı güncellendi (Phase 7))
 | Source | Indicator types | Signal |
 |--------|-----------------|--------|
 | **AbuseIPDB** | IP | 0–100 abuse-confidence score, report count, country, ISP |
@@ -172,6 +197,7 @@ Verdict mapping (max across sources): `risk_score ≥ 80` → malicious · `≥ 
 **Artifact verdict → triage bonus:**
 
 | Verdict | Triage bonus | Effect |
+<<<<<<< HEAD
 |:-----:|-----------|--------|
 | 🔴 MALICIOUS | +20 | often turns MONITOR into ESCALATE |
 | 🟡 SUSPICIOUS | +10 | moderate push |
@@ -179,18 +205,36 @@ Verdict mapping (max across sources): `risk_score ≥ 80` → malicious · `≥ 
 
 The same `T1078 External SMB Login`, scored three ways (off-hours bonus included):
 
+=======
+|:-------:|:------------:|--------|
+| 🔴 malicious | +20 | often turns MONITOR into ESCALATE |
+| 🟠 suspicious | +10 | moderate push |
+| 🟢 clean / low-risk | 0 | no change |
+
+The same `T1078 External SMB Login`, scored three ways (off-hours bonus included):
+>>>>>>> 00e1839 (docs: IOC Enrichment Layer + architecture diyagramı güncellendi (Phase 7))
 Artifact NONE:        53 → MONITOR
 
 Artifact SUSPICIOUS:  63 → ESCALATE
 
 Artifact MALICIOUS:   73 → ESCALATE
 
+<<<<<<< HEAD
 Artifacts persist to `logs/artifacts.json` and support pivoting via `get_malicious_artifacts()`, `get_artifacts_by_incident()`, and `get_artifact_summary()`.
 
 
 > **Cache pays off immediately.** First sighting of an IP costs one API call (`[API]`); every reuse in the same or subsequent runs is free (`[CACHE]`). At scale, where scanning IPs recur constantly, this keeps the pipeline inside free-tier quotas.
 
 ```
+=======
+> When multiple risk signals align — an external login outside business hours from a suspicious source — even a moderately flagged indicator is enough to cross the escalation threshold.
+
+Artifacts persist to `logs/artifacts.json` and support pivoting via `get_malicious_artifacts()`, `get_artifacts_by_incident()`, and `get_artifact_summary()`.
+
+> **Cache pays off immediately.** First sighting of an IP costs one API call (`[API]`); every reuse in the same or subsequent runs is free (`[CACHE]`). At scale, where scanning IPs recur constantly, this keeps the pipeline inside free-tier quotas.
+
+---
+>>>>>>> 00e1839 (docs: IOC Enrichment Layer + architecture diyagramı güncellendi (Phase 7))
 
 ## Tech Stack
 
