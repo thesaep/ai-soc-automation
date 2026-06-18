@@ -385,14 +385,6 @@ ai-soc-automation/
 
 ---
 
-## Known Quirks (by design, not bugs)
-
-- **The AI flags Tailscale as "C2 persistence".** When the tunnel installs itself via a `RunOnce` key (T1547.001), Claude correctly identifies remote-access-tool persistence as C2 behavior. It's right — it just doesn't know the analyst installed it. The proper fix is a knowledge/exception layer (next phase).
-- **`SEARCH_EARLIEST=-3h` for manual testing.** Picks up the last 3 hours each run, so old telemetry resurfaces. Production cron should use `-5m`.
-- **`nxc rdp` produces both RDP and SMB logons.** A single `nxc rdp` generates Type 10 (RDP) *and* Type 3 (SMB) logons because of the NLA handshake.
-
----
-
 ## License
 
 MIT
