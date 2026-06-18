@@ -190,6 +190,8 @@ Artifacts persist to `logs/artifacts.json` and support pivoting via `get_malicio
 
 > **Cache pays off immediately.** First sighting of an IP costs one API call (`[API]`); every reuse in the same or subsequent runs is free (`[CACHE]`). At scale, where scanning IPs recur constantly, this keeps the pipeline inside free-tier quotas.
 
+---
+
 ## Tech Stack
 
 | Component | Technology |
