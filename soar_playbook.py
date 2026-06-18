@@ -93,20 +93,19 @@ if __name__ == "__main__":
         # L1 Throttling (Faz 7) — son 5dk'da aynı (detection,user,host) ESCALATE olduysa atla
         import json as _tjson
         from datetime import datetime as _tdt, timezone as _ttz, timedelta as _ttd
+        # L1 Throttle cache — incidents.json'dan bağımsız, hafif ayrı dosya
+        _THROTTLE_FILE = "logs/throttle_cache.json"
         _throttle_keys = set()
+        _now_t = _tdt.now(_ttz.utc)
+        _t_cutoff = (_now_t - _ttd(minutes=5)).isoformat()
         try:
-            with open("logs/incidents.json", "r", encoding="utf-8") as _tf:
-                _tinc = _tjson.load(_tf)
-            _t_cutoff = (_tdt.now(_ttz.utc) - _ttd(minutes=5)).isoformat()
-            for _ti in _tinc:
-                if _ti.get("timestamp","") >= _t_cutoff:
-                    _throttle_keys.add((
-                        _ti.get("pipeline_trace",{}).get("detection_name",""),
-                        _ti.get("entity",{}).get("user","-"),
-                        _ti.get("entity",{}).get("host","-")
-                    ))
+            with open(_THROTTLE_FILE, "r", encoding="utf-8") as _tf:
+                _tcache = _tjson.load(_tf)
+            # TTL dolmamış kayıtları throttle_keys'e ekle
+            _tcache_clean = {k: v for k, v in _tcache.items() if v >= _t_cutoff}
+            _throttle_keys = set(tuple(k.split("|")) for k in _tcache_clean)
         except Exception:
-            pass
+            _tcache_clean = {}
         _before = len(all_events)
         all_events = [
             e for e in all_events
@@ -115,6 +114,18 @@ if __name__ == "__main__":
         _throttled = _before - len(all_events)
         if _throttled > 0:
             print(f"  [THROTTLE] {_throttled} olay son 5dk'da zaten islendi — atlandi")
+        # Kalan olayları throttle cache'e yaz
+        _now_str = _now_t.isoformat()
+        for _e in all_events:
+            _tk = "|".join([_e.get("detection_type",""), _e.get("user","-"), _e.get("host","-")])
+            _tcache_clean[_tk] = _now_str
+        try:
+            import os as _os
+            _os.makedirs("logs", exist_ok=True)
+            with open(_THROTTLE_FILE, "w", encoding="utf-8") as _tf:
+                _tjson.dump(_tcache_clean, _tf)
+        except Exception:
+            pass
 
         if not all_events:
             print("\n  [*] Şüpheli olay bulunamadı")
