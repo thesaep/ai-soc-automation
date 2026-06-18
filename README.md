@@ -175,7 +175,7 @@ Verdict mapping (max across sources): `risk_score ≥ 80` → malicious · `≥ 
 |:-----:|-----------|--------|
 | 🔴 MALICIOUS | +20 | often turns MONITOR into ESCALATE |
 | 🟡 SUSPICIOUS | +10 | moderate push |
-| 🟢 CLEAN/LOW-RISK | 0 | no change |
+| 🟢 CLEAN/LOW-RISK |  0 | no change |
 
 The same `T1078 External SMB Login`, scored three ways:
 
