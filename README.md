@@ -111,7 +111,7 @@ Universal Forwarder ──► Ubuntu VM (Splunk Enterprise — index-time field 
 | Lateral Movement | T1021.001 — RDP | 🟠 HIGH | Pattern |
 | Command & Control | T1105 — Ingress Tool Transfer | 🟡 MEDIUM | ✅ Lab |
 
-> **✅ Lab** = fired end-to-end against real telemetry (Atomic Red Team). **19 of 25 lab-validated.**
+> **✅ Lab** = fired end-to-end against real telemetry (Atomic Red Team). **22 of 25 lab-validated.**
 
 > **Pattern** = production-grade rule, validated against known attack patterns; needs an external IP / second host to fire in-lab.
 
