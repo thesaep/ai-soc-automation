@@ -8,6 +8,7 @@ from datetime import datetime
 from dotenv import load_dotenv
 import time
 from incident_logger import log_incident_v2
+from artifact_store import process_event_artifacts
 
 load_dotenv()
 
@@ -78,6 +79,7 @@ if __name__ == "__main__":
     from ai_analyzer import analyze_with_claude, analyze_chain_with_claude
     from correlator import correlate_incidents, format_chain_summary
     from incident_logger import log_incident_v2
+    from artifact_store import process_event_artifacts
     from triage_scorer import triage_events, format_triage_summary
 
     start_time = time.time()
@@ -196,6 +198,11 @@ if __name__ == "__main__":
             combined_events = escalate_events + autolog_events
             combined_analyses = ai_analyses + autolog_analyses
             incident_ids = log_incident_v2(combined_events, combined_analyses)
+            # Faz 7: Artifact-driven IOC enrichment — sadece ESCALATE olaylar
+            print(f"\n  [ARTIFACT] IOC enrichment basliyor ({len(escalate_events)} ESCALATE olay)...")
+            for ev, inc_id in zip(escalate_events, incident_ids[:len(escalate_events)]):
+                if inc_id:
+                    process_event_artifacts(ev, inc_id)
 
             # Faz 5: Korelasyon — güncel incident geçmişiyle zincirleri çıkar
             try:
