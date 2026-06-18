@@ -1,10 +1,10 @@
 # AI-Powered SOC Automation Platform
 
-A modular SOC automation platform built with Splunk, Python, and Claude AI. Detects threats mapped to **MITRE ATT&CK**, scores and triages them through a cascading pipeline, escalates high-risk events to an AI SOC analyst, correlates multi-event kill-chains, and logs everything to a tamper-evident hash-chain — end to end.
+A modular SOC automation platform built with Splunk, Python, and Claude AI. Detects threats mapped to **MITRE ATT&CK**, scores and triages them through a cascading pipeline, enriches indicators against live threat intelligence, escalates high-risk events to an AI SOC analyst, correlates multi-event kill-chains, and logs everything to a tamper-evident hash-chain — end to end.
 
 Each phase is documented on [Medium](https://erensaylan.medium.com/).
 
-> **Phase 1** detected brute force only. **Phase 2** added index-time log normalization and a 12-rule MITRE ATT&CK detection engine, validated in a dedicated attack-simulation lab. **Phase 3** turned it into a reasoning system: 25 detections, a score-based cascading triage layer, kill-chain correlation, and tamper-evident hash-chain logging.
+> **Phase 1** detected brute force only. **Phase 2** added index-time log normalization and a 12-rule MITRE ATT&CK detection engine, validated in a dedicated attack-simulation lab. **Phase 3** turned it into a reasoning system: 25 detections, a score-based cascading triage layer, kill-chain correlation, and tamper-evident hash-chain logging. **Phase 4** gave it context: artifact-driven IOC enrichment (AbuseIPDB + OTX), IOC-aware triage, trend-based escalation, and an L1 throttling layer for continuous operation.
 
 ---
 
@@ -24,12 +24,17 @@ Universal Forwarder ──► Ubuntu VM (Splunk Enterprise — index-time field 
         │
         ▼   ┌─────────────────────────────────────────────┐
             │ L2  Cascading Triage — score 0–100          │
-            │     ESCALATE ≥60 → L4   MONITOR / SUPPRESS   │
+            │     ESCALATE ≥60 → L4   MONITOR / SUPPRESS  │
+            └─────────────────────────────────────────────┘
+        │
+        ▼   ┌─────────────────────────────────────────────┐
+            │       IOC Enrichment — AbuseIPDB + OTX      │
+            │  artifact-driven, cached → feeds L2 score   │
             └─────────────────────────────────────────────┘
         │
         ▼   ┌─────────────────────────────────────────────┐
             │ L3  Semantic Retrieval — case memory        │
-            │     (planned, next phases — ChromaDB)           │
+            │     (planned, next phases — ChromaDB)       │
             └─────────────────────────────────────────────┘
         │
         ▼   ┌─────────────────────────────────────────────┐
@@ -41,6 +46,7 @@ Universal Forwarder ──► Ubuntu VM (Splunk Enterprise — index-time field 
             │ L5  SOAR — email alerts, hash-chain log,    │
             │     multi-event kill-chain correlation      │
             └─────────────────────────────────────────────┘
+
 ```
 
 > **Why is L3 deferred?** Semantic retrieval surfaces precedent from *past* cases — which requires having past cases. Building it over an empty vector DB would be theater. L3 lands in next phases, once the incident dataset is mature.
@@ -49,6 +55,10 @@ Universal Forwarder ──► Ubuntu VM (Splunk Enterprise — index-time field 
 
 ## Features
 
+- **Artifact-Driven IOC Enrichment** — every indicator (IP, hash, domain) is a first-class Artifact: extracted from events, queried once against AbuseIPDB + OTX, cached (1h TTL), and reused across events. Same IP in ten events = one Artifact with `seen_count: 10`, one API call.
+- **IOC-Aware Triage** — artifact verdicts feed the L2 score: `malicious` adds +20, `suspicious` adds +10. A known-bad source IP auto-escalates an event internal signals alone would have held in MONITOR.
+- **Trend-Based Escalation** (Phase 5-B) — repeated MONITOR verdicts on the same `(detection, user, host)` accumulate; 3+ adds +15, lifting a slow-burn pattern out of suppression.
+- **L1 Alert Throttling** — a continuously-running (5-min cron) pipeline skips any `(detection, user, host)` processed within the last 5 minutes, via a dedicated ephemeral cache independent of incident logging. Stops re-processing persistent telemetry every cycle.
 - **MITRE ATT&CK Detection Engine** — 25 detections across 8 tactics, converted from Sigma rules to SPL
 - **Cascading Triage (L2)** — every event scored 0–100 on severity, technique weight, off-hours timing, critical-asset involvement, and kill-chain membership → routed to ESCALATE / MONITOR / SUPPRESS
 - **Kill-Chain Correlation** — events on the same user/host within a time window are stitched into a campaign (`Execution → Persistence → Defense Evasion → ...`) and analyzed as one intrusion story
@@ -69,10 +79,10 @@ Universal Forwarder ──► Ubuntu VM (Splunk Enterprise — index-time field 
 
 | Tactic | Technique | Severity | Validation |
 |--------|-----------|:--------:|:----------:|
-| Initial Access | T1078 — External RDP Login | 🟠 HIGH | Pattern |
-| Initial Access | T1078 — External SMB Login | 🟠 HIGH | Pattern |
+| Initial Access | T1078 — External RDP Login | 🟠 HIGH | ✅ Lab |
+| Initial Access | T1078 — External SMB Login | 🟠 HIGH | ✅ Lab |
 | Initial Access | T1078 — Suspicious Failed Logon Reasons | 🟡 MEDIUM | ✅ Lab |
-| Initial Access | T1078 — Suspicious Failed Logon Source | 🟡 MEDIUM | Pattern |
+| Initial Access | T1078 — Suspicious Failed Logon Source | 🟡 MEDIUM | ✅ Lab |
 | Execution | T1059 — Obfuscation via MSHTA | 🟠 HIGH | ✅ Lab |
 | Execution | T1059 — Obfuscation via Rundll32 | 🟠 HIGH | ✅ Lab |
 | Execution | T1059 — Obfuscation via Stdin | 🟠 HIGH | ✅ Lab |
@@ -96,7 +106,9 @@ Universal Forwarder ──► Ubuntu VM (Splunk Enterprise — index-time field 
 | Command & Control | T1105 — Ingress Tool Transfer | 🟡 MEDIUM | ✅ Lab |
 
 > **✅ Lab** = fired end-to-end against real telemetry (Atomic Red Team). **19 of 25 lab-validated.**
+
 > **Pattern** = production-grade rule, validated against known attack patterns; needs an external IP / second host to fire in-lab.
+
 > **Requires DC** = needs a Domain Controller to generate the relevant events.
 
 Severity decisions reference Elastic Detection Rules and Sigma `level`, with some adjusted from independent research (e.g. T1055 pushed to CRITICAL — CreateRemoteThread injection is among the most dangerous techniques).
@@ -108,16 +120,19 @@ Severity decisions reference Elastic Detection Rules and Sigma `level`, with som
 Every detected event is scored *before* it reaches the AI. Only high scores spend an API call.
 
 ```
+
 score = severity_base
       + technique_weight      (T1070.001 → 20, T1055 → 20, T1003.001 → 18, T1562.001 → 15,
                                T1059* → 12, T1547.001 → 12, T1053.005 → 12, T1105 → 10,
                                T1021.001 → 10, T1027 → 5, T1057/T1083/T1012 → 3)
+      + ioc_enrichment        (artifact malicious → 20, suspicious → 10)          
+      + monitor_accumulation  (3+ prior MONITOR on same detection/user/host → 15) 
       + off_hours_bonus       (activity outside business hours)
       + critical_asset_bonus  (event touches a critical asset)
       + breach_pattern_bonus
       + chain_member_bonus    (event is part of a kill-chain)
-```
 
+```
 | Route | Condition | Action |
 |:-----:|-----------|--------|
 | 🔴 ESCALATE | score ≥ 60 | L4 Claude analysis + log + (email if CRITICAL/HIGH) |
@@ -127,6 +142,47 @@ score = severity_base
 > **Brute-force** detections (Phase 1) still use count-based risk scoring (20+ failures, success correlation, etc.). MITRE detections use the technique-weighted triage above.
 
 ---
+
+## IOC Enrichment Layer
+
+Before an event is scored, its indicators are extracted and enriched against live threat intelligence. The design is artifact-driven: the indicator, not the event, is the unit of work.
+
+```
+Event → extract IOCs (IP / hash / domain)
+      → Artifact created or updated   {type, value, first_seen, last_seen, seen_count, incident_ids}
+      → cache check (1h TTL)
+          ├── HIT  → reuse, zero API calls
+          └── MISS → AbuseIPDB + OTX → cache
+      → Enrichment attached   {verdict, risk_score, sources, tags}
+      → verdict feeds L2 triage score
+```
+| Source | Indicator types | Signal |
+|--------|-----------------|--------|
+| **AbuseIPDB** | IP | 0–100 abuse-confidence score, report count, country, ISP |
+| **OTX (AlienVault)** | IP, domain, hash | pulse count (threat-report references), malware families |
+
+Verdict mapping (max across sources): `risk_score ≥ 80` → malicious · `≥ 40` → suspicious · `≥ 10` → low-risk · else clean. Private (RFC1918), loopback, and link-local addresses are skipped before any network call.
+
+**Artifact verdict → triage bonus:**
+
+| Verdict | Triage bonus | Effect |
+|:-----:|-----------|--------|
+| 🔴 MALICIOUS | +20 | often turns MONITOR into ESCALATE |
+| 🟡 SUSPICIOUS | +10 | moderate push |
+| 🟢 CLEAN/LOW-RISK | 0 | no change |
+
+The same `T1078 External SMB Login`, scored three ways:
+
+Artifact NONE:        45 → MONITOR
+Artifact SUSPICIOUS:  55 → MONITOR
+Artifact MALICIOUS:   65 → ESCALATE
+
+Artifacts persist to `logs/artifacts.json` and support pivoting via `get_malicious_artifacts()`, `get_artifacts_by_incident()`, and `get_artifact_summary()`.
+
+
+> **Cache pays off immediately.** First sighting of an IP costs one API call (`[API]`); every reuse in the same or subsequent runs is free (`[CACHE]`). At scale, where scanning IPs recur constantly, this keeps the pipeline inside free-tier quotas.
+
+```
 
 ## Tech Stack
 
@@ -140,6 +196,8 @@ score = severity_base
 | Server OS | Ubuntu Server 22.04 |
 | Endpoint OS | Windows 10/11 |
 | Log Forwarder | Splunk Universal Forwarder |
+| Threat Intel | AbuseIPDB + OTX (AlienVault) |
+| External Attack Box | Oracle Cloud VM (Frankfurt) over Tailscale |
 
 ---
 
@@ -220,6 +278,10 @@ cp .env.example .env
 | `EMAIL_RECEIVER` | Alert recipient |
 | `SEARCH_EARLIEST` | Search window (e.g. `-3h`) |
 | `TRIAGE_THRESHOLD` | Escalation cutoff (default: 60) |
+| `ABUSEIPDB_API_KEY` | AbuseIPDB API key (free tier: 1000 queries/day) |
+| `OTX_API_KEY` | AlienVault OTX API key (free) |
+| `IOC_CACHE_TTL_HOURS` | IOC enrichment cache TTL in hours
+
 
 > Never commit `.env`. It is gitignored. Only `.env.example` (with placeholders) is tracked.
 
@@ -266,7 +328,7 @@ Each rule lives in `queries/sigma_converted/<tactic>/` and is loaded at runtime 
 ```
 ai-soc-automation/
 ├── README.md
-├── .env                         # Secrets (gitignored)
+├── .env
 ├── .env.example
 ├── .gitignore
 ├── requirements.txt
@@ -274,6 +336,8 @@ ai-soc-automation/
 ├── ai_analyzer.py               # Claude analyzer + batching + kill-chain analysis
 ├── soar_playbook.py             # Main orchestrator (detection → triage → AI → log → correlate)
 ├── triage_scorer.py             # L2 cascading triage scorer
+├── ioc_enricher.py              # AbuseIPDB + OTX enrichment, cache, IOC extraction
+├── artifact_store.py            # Artifact CRUD, enrichment binding, pivot queries
 ├── correlator.py                # Kill-chain correlation engine
 ├── incident_logger.py           # Hash-chain incident logger (schema v2.0)
 ├── create_alerts.py             # Creates/updates Splunk alerts (idempotent upsert)
@@ -293,7 +357,10 @@ ai-soc-automation/
 │   ├── props.conf               # Field extraction (Phase 2 normalization)
 │   └── transforms.conf
 ├── logs/
-│   └── incidents.json           # Hash-chain incident log
+│   ├── incidents.json           # Hash-chain incident log
+│   ├── artifacts.json           # IOC artifacts with enrichment + seen_count
+│   ├── ioc_cache.json           # Threat-intel cache (1h TTL)
+│   └── throttle_cache.json      # L1 throttle state (5min TTL, ephemeral)
 └── screenshots/                 # Project screenshots
 ```
 
@@ -306,6 +373,15 @@ ai-soc-automation/
 | Phase 1 | [Brute-force detection, risk scoring, AI triage, SOAR](https://erensaylan.medium.com/designing-an-ai-powered-soc-automation-platform-with-splunk-and-claude-ai-part-1-d75a173a5f2d) |
 | Phase 2 | [From one rule to a MITRE ATT&CK detection engine](https://medium.com/@erensaylan/designing-an-ai-powered-soc-automation-platform-with-splunk-and-claude-ai-part-2-169c67e4181b) |
 | Phase 3 | [Reasoning trace, kill-chain correlation, cascading triage](https://medium.com/@erensaylan/designing-an-ai-powered-soc-automation-platform-with-splunk-and-claude-ai-part-3-99d3292e9dfc) |
+| Phase 4 | [Artifact-driven IOC enrichment, IOC-aware triage, trend-based escalation](https://medium.com/@erensaylan/designing-an-ai-powered-soc-automation-platform-with-splunk-and-claude-ai-part-4-ecaded2d5d69) |
+
+---
+
+## Known Quirks (by design, not bugs)
+
+- **The AI flags Tailscale as "C2 persistence".** When the tunnel installs itself via a `RunOnce` key (T1547.001), Claude correctly identifies remote-access-tool persistence as C2 behavior. It's right — it just doesn't know the analyst installed it. The proper fix is a knowledge/exception layer (next phase).
+- **`SEARCH_EARLIEST=-3h` for manual testing.** Picks up the last 3 hours each run, so old telemetry resurfaces. Production cron should use `-5m`.
+- **`nxc rdp` produces both RDP and SMB logons.** A single `nxc rdp` generates Type 10 (RDP) *and* Type 3 (SMB) logons because of the NLA handshake.
 
 ---
 
