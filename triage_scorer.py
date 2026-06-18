@@ -67,7 +67,7 @@ def _is_off_hours(timestamp: str) -> bool:
         return False
 
 
-def score_event(event: dict, in_chain: bool = False, chain_size: int = 1) -> dict:
+def score_event(event: dict, in_chain: bool = False, chain_size: int = 1, artifact_verdict: str = None, monitor_count: int = 0) -> dict:
     """
     Tek bir olaya risk skoru verir. Skor + gerekçe döndürür.
 
@@ -121,7 +121,17 @@ def score_event(event: dict, in_chain: bool = False, chain_size: int = 1) -> dic
     except (ValueError, TypeError):
         pass
 
-    # 6. Korelasyon bonusu: kill-chain'in parçası mı
+    # 6. IOC Enrichment bonusu (Faz 7.5) — artifact verdict'i triage'ı etkiler
+    if artifact_verdict == "malicious":
+        components["ioc_malicious"] = 20   # bilinen kötü IP/hash → direkt yüksek öncelik
+    elif artifact_verdict == "suspicious":
+        components["ioc_suspicious"] = 10  # şüpheli IOC → orta bonus
+
+    # 7. MONITOR birikim bonusu (Faz 5-B) — aynı teknik+kullanıcı+host defalarca MONITOR olduysa eskalasyon
+    if monitor_count >= 3:
+        components["monitor_accumulation"] = 15  # 3+ MONITOR → artık Claude'a gönder
+
+    # 8. Korelasyon bonusu: kill-chain'in parçası mı
     if in_chain and chain_size >= 2:
         # Zincir büyüdükçe bonus artar (max 20)
         chain_bonus = min(10 + (chain_size - 2) * 5, 20)
@@ -151,7 +161,7 @@ def score_event(event: dict, in_chain: bool = False, chain_size: int = 1) -> dic
     }
 
 
-def triage_events(events: list, chains: list = None) -> dict:
+def triage_events(events: list, chains: list = None, artifact_verdicts: dict = None, monitor_counts: dict = None) -> dict:
     """
     Olay listesini L2 katmanından geçirir, L4'e gidecekleri ayırır.
 
@@ -183,7 +193,12 @@ def triage_events(events: list, chains: list = None) -> dict:
         in_chain = key in chain_membership
         chain_size = chain_membership.get(key, 1)
 
-        result = score_event(event, in_chain=in_chain, chain_size=chain_size)
+        # Artifact verdict: src_ip bazlı lookup (Faz 7.5)
+        ev_key = (event.get("detection_type",""), event.get("user","-"), event.get("host","-"))
+        art_verdict = (artifact_verdicts or {}).get(event.get("src_ip",""), None)
+        mon_count   = (monitor_counts or {}).get(ev_key, 0)
+        result = score_event(event, in_chain=in_chain, chain_size=chain_size,
+                             artifact_verdict=art_verdict, monitor_count=mon_count)
         scores.append(result)
 
         # Skoru olaya da iliştir (downstream kullanım için)

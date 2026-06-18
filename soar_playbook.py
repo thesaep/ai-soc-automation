@@ -90,6 +90,32 @@ if __name__ == "__main__":
         mitre_events = get_all_mitre_events(service, earliest=os.getenv("SEARCH_EARLIEST", "-5m"))
         all_events = bf_events + mitre_events
 
+        # L1 Throttling (Faz 7) — son 5dk'da aynı (detection,user,host) ESCALATE olduysa atla
+        import json as _tjson
+        from datetime import datetime as _tdt, timezone as _ttz, timedelta as _ttd
+        _throttle_keys = set()
+        try:
+            with open("logs/incidents.json", "r", encoding="utf-8") as _tf:
+                _tinc = _tjson.load(_tf)
+            _t_cutoff = (_tdt.now(_ttz.utc) - _ttd(minutes=5)).isoformat()
+            for _ti in _tinc:
+                if _ti.get("timestamp","") >= _t_cutoff:
+                    _throttle_keys.add((
+                        _ti.get("pipeline_trace",{}).get("detection_name",""),
+                        _ti.get("entity",{}).get("user","-"),
+                        _ti.get("entity",{}).get("host","-")
+                    ))
+        except Exception:
+            pass
+        _before = len(all_events)
+        all_events = [
+            e for e in all_events
+            if (e.get("detection_type",""), e.get("user","-"), e.get("host","-")) not in _throttle_keys
+        ]
+        _throttled = _before - len(all_events)
+        if _throttled > 0:
+            print(f"  [THROTTLE] {_throttled} olay son 5dk'da zaten islendi — atlandi")
+
         if not all_events:
             print("\n  [*] Şüpheli olay bulunamadı")
         else:
@@ -105,7 +131,40 @@ if __name__ == "__main__":
             print(f"\n{'='*65}")
             print(f"  [TRIAGE]  L2 CASCADING TRIAGE")
             print(f"{'='*65}")
-            triage = triage_events(all_events, chains=prelim_chains)
+            # Faz 7.5: Artifact verdict map — src_ip → verdict (cache'den, API yok)
+            from artifact_store import get_artifact
+            _artifact_verdicts = {}
+            for _ev in all_events:
+                _ip = _ev.get("src_ip", "")
+                if _ip and _ip not in _artifact_verdicts:
+                    _art = get_artifact("ip", _ip)
+                    if _art:
+                        _artifact_verdicts[_ip] = _art.get("enrichment", {}).get("verdict", None)
+
+            # Faz 5-B: Monitor birikim sayacı — incidents.json'dan hesapla
+            import json as _json
+            _monitor_counts = {}
+            try:
+                with open("logs/incidents.json", "r", encoding="utf-8") as _f:
+                    _all_inc = _json.load(_f)
+                from datetime import datetime as _dt, timezone as _tz, timedelta as _td
+                _cutoff = (_dt.now(_tz.utc) - _td(days=7)).isoformat()
+                for _inc in _all_inc:
+                    if _inc.get("timestamp","") < _cutoff:
+                        continue
+                    if _inc.get("triage_verdict") == "MONITOR":
+                        _mk = (
+                            _inc.get("pipeline_trace",{}).get("detection_name",""),
+                            _inc.get("entity",{}).get("user","-"),
+                            _inc.get("entity",{}).get("host","-")
+                        )
+                        _monitor_counts[_mk] = _monitor_counts.get(_mk, 0) + 1
+            except Exception:
+                pass
+
+            triage = triage_events(all_events, chains=prelim_chains,
+                                   artifact_verdicts=_artifact_verdicts,
+                                   monitor_counts=_monitor_counts)
             escalate_events = triage["escalate"]
 	    # Unique filtre: aynı detection_type + user kombinasyonu varsa sadece birini analiz et
             # Duplike olaylar token israfı yaratır — tekilleştir, geri kalanları autolog'a taşı
@@ -201,8 +260,9 @@ if __name__ == "__main__":
             # Faz 7: Artifact-driven IOC enrichment — sadece ESCALATE olaylar
             print(f"\n  [ARTIFACT] IOC enrichment basliyor ({len(escalate_events)} ESCALATE olay)...")
             for ev, inc_id in zip(escalate_events, incident_ids[:len(escalate_events)]):
-                if inc_id:
-                    process_event_artifacts(ev, inc_id)
+                # Artifact enrichment: inc_id None olsa bile çalış (seen_count + triage sinyal)
+                # inc_id None = idempotency skip, ama IOC pivot verisi yine güncellenmeli
+                process_event_artifacts(ev, inc_id)
 
             # Faz 5: Korelasyon — güncel incident geçmişiyle zincirleri çıkar
             try:
