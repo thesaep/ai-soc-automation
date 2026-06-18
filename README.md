@@ -254,6 +254,30 @@ Detailed automated email notifications for CRITICAL and HIGH severity events, wi
 ![JSON](screenshots/incidents_json1.png)
 All detected events are stored with timestamps and chained hashes in `logs/incidents.json`.
 
+### IOC Enrichment — Artifact-Driven Threat Intel
+![IOC Enrichment](screenshots/ioc_enrichment.png)
+Each indicator is queried once against AbuseIPDB + OTX, cached, and reused. `[API]` on first sight, `[CACHE]` on every reuse — the same IP never costs two calls.
+
+### IOC-Aware Triage — Verdict-Driven Escalation
+![IOC-Aware Triage](screenshots/ioc_aware_triage.png)
+A malicious artifact verdict adds +20 to the L2 score, turning a MONITOR into an ESCALATE. The same external-login event scored three ways shows the flip.
+
+### Trend-Based Escalation
+![Trend Escalation](screenshots/trend_escalation.png)
+Repeated MONITOR verdicts on the same user/host accumulate; 3+ adds +15, lifting a slow-burn persistence pattern out of suppression.
+
+### L1 Throttling
+![Throttling](screenshots/throttling.png)
+On a second consecutive run, events already processed in the last 5 minutes are skipped — the continuously-running pipeline stops re-analyzing persistent telemetry.
+
+### The "C2" False Positive
+![Tailscale C2](screenshots/tailscale_c2_fp.png)
+Claude flags the analyst's own Tailscale tunnel (a RunOnce persistence key) as attacker C2 — technically correct, contextually wrong.
+
+---
+
+## Installation
+
 ---
 
 ## Installation
