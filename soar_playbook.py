@@ -163,7 +163,7 @@ if __name__ == "__main__":
                 for _inc in _all_inc:
                     if _inc.get("timestamp","") < _cutoff:
                         continue
-                    if _inc.get("triage_verdict") == "MONITOR":
+                    if _inc.get("pipeline_trace",{}).get("triage_verdict") == "MONITOR":
                         _mk = (
                             _inc.get("pipeline_trace",{}).get("detection_name",""),
                             _inc.get("entity",{}).get("user","-"),
@@ -267,7 +267,10 @@ if __name__ == "__main__":
             # Tüm olayları logla (escalate + autolog), sırayı koru
             combined_events = escalate_events + autolog_events
             combined_analyses = ai_analyses + autolog_analyses
-            incident_ids = log_incident_v2(combined_events, combined_analyses)
+            # triage["scores"] all_events sırasıyla eşleşiyor
+            # combined_events = escalate + autolog = all_events sırası korunuyor
+            combined_scores = triage["scores"]
+            incident_ids = log_incident_v2(combined_events, combined_analyses, triage_scores=combined_scores)
             # Faz 7: Artifact-driven IOC enrichment — sadece ESCALATE olaylar
             print(f"\n  [ARTIFACT] IOC enrichment basliyor ({len(escalate_events)} ESCALATE olay)...")
             for ev, inc_id in zip(escalate_events, incident_ids[:len(escalate_events)]):

@@ -146,7 +146,7 @@ def build_incident(event: dict, analysis: str) -> dict:
     return _build_incident_with_hash(event, analysis, prev_hash)
 
 
-def _build_incident_with_hash(event: dict, analysis: str, prev_hash: str) -> dict:
+def _build_incident_with_hash(event: dict, analysis: str, prev_hash: str, triage_verdict: str = "-", triage_score: int = 0) -> dict:
     """
     Ham event + AI analizinden yapılandırılmış incident objesi üretir.
     prev_hash: zincirdeki bir önceki incident'ın hash'i (bellekten gelir)
@@ -161,6 +161,8 @@ def _build_incident_with_hash(event: dict, analysis: str, prev_hash: str) -> dic
             "spl_file": _resolve_spl_file(event),
             "triggered_fields": _extract_triggered_fields(event),
             "search_window": os.getenv("SEARCH_EARLIEST", "-5m"),
+            "triage_verdict": triage_verdict,
+            "triage_score":   triage_score,
         },
         "entity": {
             "user":   event.get("user", "-"),
@@ -184,7 +186,7 @@ def _build_incident_with_hash(event: dict, analysis: str, prev_hash: str) -> dic
     return incident
 
 
-def log_incident_v2(events: list, ai_analyses: list) -> list:
+def log_incident_v2(events: list, ai_analyses: list, triage_scores: list = None) -> list:
     """
     Faz 4 incident logger.
     Her event için build_incident() çağırır, hash-chain ile yazar.
@@ -238,7 +240,7 @@ def log_incident_v2(events: list, ai_analyses: list) -> list:
                 _recent_keys[_agg_key] = i  # son index'i tut
         except:
             pass
-    for event, analysis in zip(events, ai_analyses):
+    for i, (event, analysis) in enumerate(zip(events, ai_analyses)):
         try:
             # Idempotency kontrolü
             _ev_ikey = (
@@ -266,7 +268,9 @@ def log_incident_v2(events: list, ai_analyses: list) -> list:
                       f"| {_ev_key[0][:30]} | count: {existing_logs[_idx]['metrics']['count']}")
                 continue
             # build_incident yerine direkt burada hash zincirini yönet
-            incident = _build_incident_with_hash(event, analysis, prev_hash)
+            _tv = triage_scores[i]["verdict"] if triage_scores and i < len(triage_scores) else "-"
+            _ts = triage_scores[i]["score"]   if triage_scores and i < len(triage_scores) else 0
+            incident = _build_incident_with_hash(event, analysis, prev_hash, triage_verdict=_tv, triage_score=_ts)
             existing_logs.append(incident)
             incident_ids.append(incident["incident_id"])
             prev_hash = incident["hash"]  # bir sonraki incident bu hash'i kullanacak
