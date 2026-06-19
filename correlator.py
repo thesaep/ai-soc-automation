@@ -142,7 +142,8 @@ def correlate_incidents(incidents: list, time_window_minutes: int = 60) -> list:
     # Zincirleri risk + olay sayısına göre sırala (en kritik en üstte)
     chains.sort(key=lambda c: (RISK_SCORE.get(c["chain_risk"], 0), c["incident_count"]),
                 reverse=True)
-
+    # Tek olaylı zincirleri filtrele — anlamsız, zaten tek başına olay
+    chains = [c for c in chains if c["incident_count"] >= 2]
     return chains
 
 

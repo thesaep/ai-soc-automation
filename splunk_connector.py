@@ -59,7 +59,7 @@ def normalize_event(event):
     """
     # Ortak şema → bu field aday listesinden ilk dolu olanı alır
     field_map = {
-        "user": ["Account_Name", "user", "TargetUserName", "Network_Account_Name", "User", "SourceUser"],
+        "user": ["Account_Name", "TargetUserName", "Network_Account_Name", "SourceUser"],
         "domain": ["Account_Domain", "domain", "TargetDomainName", "Network_Account_Domain"],
         "host":   ["ComputerName", "host"],
         "src_ip": ["Source_Network_Address", "src_ip", "IpAddress"],
