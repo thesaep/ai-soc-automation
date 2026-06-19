@@ -63,7 +63,7 @@ Universal Forwarder ──► Ubuntu VM (Splunk Enterprise — index-time field 
 
 - **Artifact-Driven IOC Enrichment** — every indicator (IP, hash, domain) is a first-class Artifact: extracted from events, queried once against AbuseIPDB + OTX, cached (1h TTL), and reused across events. Same IP in ten events = one Artifact with `seen_count: 10`, one API call.
 - **IOC-Aware Triage** — artifact verdicts feed the L2 score: `malicious` adds +20, `suspicious` adds +10. A known-bad source IP auto-escalates an event internal signals alone would have held in MONITOR.
-- **Trend-Based Escalation** (Phase 5-B) — repeated MONITOR verdicts on the same `(detection, user, host)` accumulate; 3+ adds +15, lifting a slow-burn pattern out of suppression.
+- **Trend-Based Escalation** — repeated MONITOR verdicts on the same `(detection, user, host)` accumulate; 3+ adds +15, lifting a slow-burn pattern out of suppression.
 - **L1 Alert Throttling** — a continuously-running (5-min cron) pipeline skips any `(detection, user, host)` processed within the last 5 minutes, via a dedicated ephemeral cache independent of incident logging. Stops re-processing persistent telemetry every cycle.
 - **MITRE ATT&CK Detection Engine** — 25 detections across 8 tactics, converted from Sigma rules to SPL
 - **Cascading Triage (L2)** — every event scored 0–100 on severity, technique weight, off-hours timing, critical-asset involvement, and kill-chain membership → routed to ESCALATE / MONITOR / SUPPRESS
