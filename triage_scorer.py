@@ -185,7 +185,8 @@ def triage_events(events: list, chains: list = None, artifact_verdicts: dict = N
             chain_membership[key] = chain.get("incident_count", 1)
 
     escalate = []
-    autolog = []
+    monitor = []
+    suppress = []
     scores = []
 
     for event in events:
@@ -206,18 +207,25 @@ def triage_events(events: list, chains: list = None, artifact_verdicts: dict = N
 
         if result["route"] == "L4_claude":
             escalate.append(event)
+        elif result["verdict"] == "MONITOR":
+            monitor.append(event)
         else:
-            autolog.append(event)
+            suppress.append(event)
 
+    autolog = monitor + suppress  # geriye dönük uyumluluk
     stats = {
         "total": len(events),
         "escalated": len(escalate),
+        "monitored": len(monitor),
+        "suppressed": len(suppress),
         "autologged": len(autolog),
         "escalation_rate": round(len(escalate) / len(events) * 100, 1) if events else 0,
     }
 
     return {
         "escalate": escalate,
+        "monitor": monitor,
+        "suppress": suppress,
         "autolog": autolog,
         "scores": scores,
         "stats": stats,

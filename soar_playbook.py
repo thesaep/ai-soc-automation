@@ -312,6 +312,17 @@ if __name__ == "__main__":
         # Email: yüksek riskli olaylar
             send_email_alert(escalate_events, ai_analyses)  # Sadece ESCALATE olaylar
 
+            # MONITOR olayları için TREND uyarısı
+            monitor_events = triage.get("monitor", [])
+            if monitor_events:
+                print(f"\n{'-'*65}")
+                print(f"  [MONITOR] {len(monitor_events)} olay izlemede")
+                for ev in monitor_events:
+                    ev_key = (ev.get("detection_type",""), ev.get("user","-"), ev.get("host","-"))
+                    mc = _monitor_counts.get(ev_key, 0) + 1  # +1 bu çalışma dahil
+                    trend_str = f" ⚠ TREND ({mc}x MONITOR)" if mc >= 3 else f" ({mc}x)"
+                    print(f"  * {ev.get('detection_type','')[:40]:<40} | {ev.get('user','-')} | skor:{ev.get('_triage',{}).get('score',0)}{trend_str}")
+
             # Özet rapor — LOW/MEDIUM auto-log olayları
             if autolog_events:
                 from collections import Counter
