@@ -57,14 +57,21 @@ def _parse_timestamp(ts: str) -> datetime:
 
 def _entity_key(incident: dict) -> tuple:
     """
-    Bir incident'ın korelasyon anahtarını üretir: (user, host).
-    Aynı anahtara sahip olaylar potansiyel olarak aynı kampanyaya aittir.
-    src_ip ileride (Faz 5-B / Faz 7) anahtara eklenebilir.
+    Bir incident'ın korelasyon anahtarını üretir.
+    Öncelik: (user, host) → user yoksa (src_ip, host) → ikisi de yoksa (host,)
+    Bu sayede kullanıcısız olaylar IP bazlı zincirlere girer.
     """
     entity = incident.get("entity", {})
-    user = entity.get("user", "-")
-    host = entity.get("host", "-")
-    return (user, host)
+    user   = entity.get("user", "-")
+    host   = entity.get("host", "-")
+    src_ip = entity.get("src_ip", "-")
+
+    if user not in ("-", "", None):
+        return (user, host)           # normal: kullanıcı bazlı
+    elif src_ip not in ("-", "", None):
+        return (src_ip, host)         # kullanıcı yok: IP bazlı
+    else:
+        return ("-", host)            # ikisi de yok: host bazlı
 
 
 def _tactic_order_index(tactic: str) -> int:
