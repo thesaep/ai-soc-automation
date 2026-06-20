@@ -17,7 +17,7 @@ def _get_technique_id(detection_type):
     m = re.search(r"T\d{4}(?:\.\d{3})?", detection_type)
     return m.group(0) if m else "-"
 
-def send_email_alert(events, ai_analyses):
+def send_email_alert(events, ai_analyses, trend_alerts=None):
     """
     Yüksek riskli olaylar için email bildirimi gönderir.
     Sadece CRITICAL ve HIGH risklerde tetiklenir.
@@ -28,8 +28,13 @@ def send_email_alert(events, ai_analyses):
         if e.get('risk') in ['CRITICAL', 'HIGH']
     ]
     
-    if not high_risk_pairs:
+    # TREND varsa risk seviyesinden bağımsız gönder
+    has_trend = bool(trend_alerts)
+    if not high_risk_pairs and not has_trend:
         return
+    # TREND varsa ama high_risk_pairs boşsa tüm escalate olayları ekle
+    if not high_risk_pairs and has_trend:
+        high_risk_pairs = list(zip(events, ai_analyses))
 
     risks = [e.get('risk', 'HIGH') for e, _ in high_risk_pairs]
     top_risk = 'CRITICAL' if 'CRITICAL' in risks else 'HIGH'
@@ -43,6 +48,18 @@ Toplam   : {len(high_risk_pairs)} yüksek riskli olay
 OLAY DETAYLARI
 {'='*60}
 """
+    # TREND uyarıları varsa email'e ekle
+    if trend_alerts:
+        body += f"""
+{'='*60}
+⚠ TREND UYARILARI
+{'='*60}
+"""
+        for tk, mc in trend_alerts.items():
+            detection, host = tk.split("|") if "|" in tk else (tk, "-")
+            body += f"  * {detection} | {host} | {mc}x MONITOR — trend eşiği aşıldı\n"
+        body += f"{'='*60}\n"
+
     for i, (event, analysis) in enumerate(high_risk_pairs):
         body += f"""
 [{event.get('risk')}] OLAY #{i+1}
@@ -308,9 +325,6 @@ if __name__ == "__main__":
                     analyze_chain_with_claude(chain)
                 elif has_new:
                     print(f"\n  {risk_icon} {chain['chain_risk']:<8} {chain['chain_id']} | {chain['incident_count']} olay | {tactics}")
-        
-        # Email: yüksek riskli olaylar
-            send_email_alert(escalate_events, ai_analyses)  # Sadece ESCALATE olaylar
 
             # MONITOR olayları için TREND uyarısı — ayrı dosyadan bağımsız sayaç
             import json as _tj
@@ -330,6 +344,9 @@ if __name__ == "__main__":
                     _trend_store[_tk] = _trend_store.get(_tk, 0) + 1
                     mc = _trend_store[_tk]
                     trend_str = f" ⚠ TREND ({mc}x MONITOR)" if mc >= 3 else f" ({mc}x)"
+                    # AI'a trend context'i ver — eşik aşıldıysa event'e ekle
+                    if mc >= 3:
+                        ev["_trend_info"] = f"Bu olay {mc} kez MONITOR seviyesinde tekrarlandı ve trend eşiği ({3}x) aşıldığı için analize alındı. Tekrarlayan pattern bağlamında değerlendir."
                     print(f"  * {ev.get('detection_type','')[:40]:<40} | {ev.get('user','-')} | skor:{ev.get('_triage',{}).get('score',0)}{trend_str}")
                 # Trend store'u kaydet
                 try:
@@ -338,24 +355,28 @@ if __name__ == "__main__":
                 except:
                     pass
 
-            # Özet rapor — LOW/MEDIUM auto-log olayları
-            if autolog_events:
-                from collections import Counter
-                tech_counts = Counter(e.get('detection_type', '?') for e in autolog_events)
-                entities = set(f"{e.get('user','-')}@{e.get('host','-')}" for e in autolog_events)
-                print(f"\n{'-'*65}")
-                risk_dist = Counter(e.get('risk', '-') for e in autolog_events)
-                risk_str = " | ".join(f"{r}x{c}" for r, c in sorted(risk_dist.items()))
-                print(f"  [OZET] AUTO-LOG ÖZET ({len(autolog_events)} olay — {risk_str} — Claude'a gönderilmedi)")
-                print(f"{'-'*65}")
-                for tech, count in tech_counts.most_common():
-                    print(f"  * {tech[:45]:<45} x{count}")
-                print(f"  Etkilenen entity'ler: {', '.join(entities)}")
-                print(f"  [i]  Manuel inceleme önerisi: Splunk'ta ilgili detection'ları kontrol et")
-                print(f"{'-'*65}")
-                # Pipeline özeti
-                elapsed = round(time.time() - start_time, 1)
-                escalated = len(all_events) - len(autolog_events)
-                print(f"\n  [OK] Pipeline tamamlandı | {len(all_events)} detection | "
-                      f"{escalated} ESCALATE | {len(autolog_events)} AUTO-LOG | "
-                      f"{len(chains)} zincir | {len(incident_ids)} incident | {elapsed}s")
+        # Email: yüksek riskli olaylar + TREND uyarıları
+        _trend_alerts = {k: v for k, v in _trend_store.items() if v >= 3} if _trend_store else {}
+        send_email_alert(escalate_events, ai_analyses, trend_alerts=_trend_alerts if _trend_alerts else None)
+
+        # Özet rapor — LOW/MEDIUM auto-log olayları
+        if autolog_events:
+            from collections import Counter
+            tech_counts = Counter(e.get('detection_type', '?') for e in autolog_events)
+            entities = set(f"{e.get('user','-')}@{e.get('host','-')}" for e in autolog_events)
+            print(f"\n{'-'*65}")
+            risk_dist = Counter(e.get('risk', '-') for e in autolog_events)
+            risk_str = " | ".join(f"{r}x{c}" for r, c in sorted(risk_dist.items()))
+            print(f"  [OZET] AUTO-LOG ÖZET ({len(autolog_events)} olay — {risk_str} — Claude'a gönderilmedi)")
+            print(f"{'-'*65}")
+            for tech, count in tech_counts.most_common():
+                print(f"  * {tech[:45]:<45} x{count}")
+            print(f"  Etkilenen entity'ler: {', '.join(entities)}")
+            print(f"  [i]  Manuel inceleme önerisi: Splunk'ta ilgili detection'ları kontrol et")
+            print(f"{'-'*65}")
+            # Pipeline özeti
+            elapsed = round(time.time() - start_time, 1)
+            escalated = len(all_events) - len(autolog_events)
+            print(f"\n  [OK] Pipeline tamamlandı | {len(all_events)} detection | "
+                  f"{escalated} ESCALATE | {len(autolog_events)} AUTO-LOG | "
+                  f"{len(chains)} zincir | {len(incident_ids)} incident | {elapsed}s")

@@ -70,6 +70,9 @@ def _format_event_fields(event):
                     continue
             lines.append(f"- {k}: {v}")
 
+    # Trend context — olay trend nedeniyle analize alındıysa AI'a bildir
+    if event.get("_trend_info"):
+        lines.insert(0, f"- TREND UYARISI: {event['_trend_info']}")
     return "\n".join(lines)
 
 
