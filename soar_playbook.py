@@ -312,16 +312,31 @@ if __name__ == "__main__":
         # Email: yüksek riskli olaylar
             send_email_alert(escalate_events, ai_analyses)  # Sadece ESCALATE olaylar
 
-            # MONITOR olayları için TREND uyarısı
+            # MONITOR olayları için TREND uyarısı — ayrı dosyadan bağımsız sayaç
+            import json as _tj
+            _TREND_FILE = "logs/monitor_trend.json"
+            try:
+                with open(_TREND_FILE) as _tf:
+                    _trend_store = _tj.load(_tf)
+            except:
+                _trend_store = {}
             monitor_events = triage.get("monitor", [])
             if monitor_events:
                 print(f"\n{'-'*65}")
                 print(f"  [MONITOR] {len(monitor_events)} olay izlemede")
                 for ev in monitor_events:
-                    ev_key = (ev.get("detection_type",""), ev.get("user","-"), ev.get("host","-"))
-                    mc = _monitor_counts.get(ev_key, 0) + 1  # +1 bu çalışma dahil
+                    # Key: (detection, host) — user boş olabilir, host sabit
+                    _tk = f"{ev.get('detection_type','')}|{ev.get('host','-')}"
+                    _trend_store[_tk] = _trend_store.get(_tk, 0) + 1
+                    mc = _trend_store[_tk]
                     trend_str = f" ⚠ TREND ({mc}x MONITOR)" if mc >= 3 else f" ({mc}x)"
                     print(f"  * {ev.get('detection_type','')[:40]:<40} | {ev.get('user','-')} | skor:{ev.get('_triage',{}).get('score',0)}{trend_str}")
+                # Trend store'u kaydet
+                try:
+                    with open(_TREND_FILE, "w") as _tf:
+                        _tj.dump(_trend_store, _tf)
+                except:
+                    pass
 
             # Özet rapor — LOW/MEDIUM auto-log olayları
             if autolog_events:
