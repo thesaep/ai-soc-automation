@@ -138,7 +138,7 @@ def analyze_with_claude(events, return_results=False):
     event_blocks = []
     for i, event in enumerate(events):
         fields = _format_event_fields(event)
-        block = f"OLAY #{i+1}:\n{fields}"
+        block = f"EVENT #{i+1}:\n{fields}"
         event_blocks.append(block)
 
     combined_events = "\n\n".join(event_blocks)
@@ -153,38 +153,29 @@ def analyze_with_claude(events, return_results=False):
     mitre_section = "\n".join(mitre_contexts) if mitre_contexts else ""
 
     # Yapılandırılmış prompt — MITRE context + tüm event field'ları Claude'a gider
-    prompt = f"""Sen bir SOC (Security Operations Center) analistisin.
-Aşağıdaki {len(events)} güvenlik olayını analiz et ve değerlendir:
+    prompt = f"""You are a SOC (Security Operations Center) analyst.
+Analyze and assess the following {len(events)} security events:
 {mitre_section}
-
 {combined_events}
-
-HER OLAY İÇİN ŞU FORMATTA YANIT VER:
-
-OLAY #N:
-SOC ANALİZ RAPORU
-
-1. SALDIRI MI / FALSE POSITIVE MI?
-(Tek paragraf cevap, 2-3 cümle)
-
-2. RİSK CİDDİYETİ:
-(Tek paragraf cevap, 2-3 cümle)
-
-3. SOC ANALİSTİ NE YAPMALI:
-- (1. eylem önerisi)
-- (2. eylem önerisi)
-- (3. eylem önerisi)
-
-4. İÇ Mİ DIŞ TEHDİT?
-(Tek paragraf cevap, 2-3 cümle)
-
-KURALLAR:
-- Her olay "OLAY #N:" satırıyla başlamalı, sonra yukarıdaki formatta devam etmeli.
-- Markdown formatting (yıldız, tire) KULLANMA, düz metin yaz.
-- Her madde kısa ve net olsun.
-- Olay field'larındaki gerçek değerleri (kullanıcı adı, IP, makine adı vb.) analizde kullan.
-
-Şimdi {len(events)} olay için bu formatta yanıt ver."""
+RESPOND FOR EACH EVENT IN THIS FORMAT:
+EVENT #N:
+SOC ANALYSIS REPORT
+1. ATTACK OR FALSE POSITIVE?
+(Single paragraph, 2-3 sentences)
+2. RISK SEVERITY:
+(Single paragraph, 2-3 sentences)
+3. WHAT SHOULD THE SOC ANALYST DO:
+- (Action 1)
+- (Action 2)
+- (Action 3)
+4. INTERNAL OR EXTERNAL THREAT?
+(Single paragraph, 2-3 sentences)
+RULES:
+- Each event must start with an "EVENT #N:" line, then follow the format above.
+- Do NOT use markdown formatting (asterisks, dashes), write plain text.
+- Keep each item short and clear.
+- Use the real values from the event fields (username, IP, hostname, etc.) in your analysis.
+Now respond for {len(events)} events in this format."""
 
     message = client.messages.create(
         model="claude-sonnet-4-6",
@@ -196,7 +187,7 @@ KURALLAR:
 
     # Response'u "OLAY #N:" başlıklarına göre böl
     import re
-    parts = re.split(r'(?m)^OLAY\s*#\d+\s*:?\s*', raw_response.strip())
+    parts = re.split(r'(?m)^(?:OLAY|EVENT)\s*#\d+\s*:?\s*', raw_response.strip())
     parts = [p.strip() for p in parts if p.strip()]
 
     # Parse başarısızsa fallback
@@ -301,7 +292,7 @@ def analyze_chain_with_claude(chain: dict, return_result: bool = False):
         trace   = inc.get("pipeline_trace", {})
         fields  = trace.get("triggered_fields", {})
 
-        block = f"""OLAY #{i}:
+        block = f"""EVENT #{i}:
 - Detection   : {mitre.get('technique_name', '-')}
 - Teknik ID   : {mitre.get('technique_id', '-')}
 - Taktik      : {mitre.get('tactic', '-')}
@@ -323,46 +314,36 @@ def analyze_chain_with_claude(chain: dict, return_result: bool = False):
     is_multistage = chain.get("is_multistage", False)
     time_span     = chain.get("time_span_minutes", 0)
 
-    prompt = f"""Sen deneyimli bir SOC analistisin. Aşağıdaki {len(incidents)} güvenlik olayı,
-aynı kullanıcı ve makine üzerinde kısa sürede gerçekleşmiş ve otomatik korelasyon sistemi
-tarafından tek bir saldırı kampanyasına ait olarak gruplandırılmıştır.
-
-ZINCIR ÖZETI:
-- Hedef: {chain['entity']['user']} @ {chain['entity']['host']}
-- Zincir riski: {chain_risk}
-- Zaman aralığı: {time_span} dakika
-- Kill-chain aşamaları: {tactics_str}
-- Tespit edilen teknikler: {techniques_str}
-- Çok aşamalı saldırı: {"Evet" if is_multistage else "Hayır"}
-
-OLAYLAR:
+    prompt = f"""You are an experienced SOC analyst. The following {len(incidents)} security events
+occurred on the same user and host within a short time window and were grouped by the
+automated correlation system as belonging to a single attack campaign.
+CHAIN SUMMARY:
+- Target: {chain['entity']['user']} @ {chain['entity']['host']}
+- Chain risk: {chain_risk}
+- Time span: {time_span} minutes
+- Kill-chain stages: {tactics_str}
+- Detected techniques: {techniques_str}
+- Multi-stage attack: {"Yes" if is_multistage else "No"}
+EVENTS:
 {combined}
-
-Bu zinciri bir bütün olarak değerlendir ve şu formatta yanıt ver:
-
-KİLL-CHAIN ANALİZİ:
-
-1. SALDIRI KAMPANYASI DEĞERLENDİRMESİ:
-(Bu olaylar gerçek bir koordineli saldırıyı mı temsil ediyor? 2-3 cümle)
-
-2. SALDIRGANIN AMACI:
-(Mevcut kill-chain aşamalarına göre saldırganın nihai hedefi ne? 2-3 cümle)
-
-3. SALDIRININ HANGİ AŞAMASINDAYIZ:
-(Kill-chain'de neredeyiz, hangi aşamalar tamamlandı, hangisi muhtemelen sırada? 2-3 cümle)
-
-4. SONRAKI MUHTEMEL ADIM:
-(Saldırganın büyük ihtimalle sonraki hamlesi ne olacak? Somut teknik tahmin yap)
-
-5. ACİL AKSİYONLAR:
-- (En kritik 1. eylem)
-- (En kritik 2. eylem)
-- (En kritik 3. eylem)
-
-KURALLAR:
-- Olayları birbirine bağla, izole değerlendir.
-- Teknik ATT&CK terminolojisini kullan.
-- Markdown formatting kullanma, düz metin yaz.
+Assess this chain as a whole and respond in this format:
+KILL-CHAIN ANALYSIS:
+1. ATTACK CAMPAIGN ASSESSMENT:
+(Do these events represent a real coordinated attack? 2-3 sentences)
+2. ATTACKER OBJECTIVE:
+(Based on the observed kill-chain stages, what is the attacker's ultimate goal? 2-3 sentences)
+3. WHICH STAGE OF THE ATTACK ARE WE IN:
+(Where are we in the kill-chain, which stages are complete, which is likely next? 2-3 sentences)
+4. LIKELY NEXT STEP:
+(What is the attacker's most probable next move? Give a concrete technical prediction)
+5. IMMEDIATE ACTIONS:
+- (Most critical action 1)
+- (Most critical action 2)
+- (Most critical action 3)
+RULES:
+- Connect the events to each other, do not assess them in isolation.
+- Use technical ATT&CK terminology.
+- Do not use markdown formatting, write plain text.
 """
 
     rc = risk_color(chain_risk)
