@@ -144,6 +144,7 @@ if __name__ == "__main__":
         except Exception:
             pass
 
+        _trend_store = {}  # fix: "0 şüpheli olay" durumunda da tanımlı olsun (NameError önleme)
         if not all_events:
             print("\n  [*] Şüpheli olay bulunamadı")
         else:

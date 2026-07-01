@@ -114,6 +114,24 @@ def index_incidents():
         print(f"  {m['technique_id']:12} | {m['risk']:8} | user={m['user']} host={m['host']}")
 
 
+def build_query(event):
+    """
+    Retrieval SORGUSU için kısa metin (indeks dokümanından FARKLI, ai_analysis YOK).
+    Analiz öncesi olaylarda ai_analysis henüz yok; build_document ile sorgu yapmak
+    (2000+ karakterlik ai_analysis içeren dokümanlarla kıyaslamak) dist'i yapay şişirir.
+    Bu fonksiyon sadece teknik/risk/entity ile kısa, dengeli bir sorgu kurar.
+    """
+    m = event.get("mitre", {}) or {}
+    e = event.get("entity", {}) or {}
+    parts = [
+        m.get("technique_id") or event.get("detection_type", ""),
+        m.get("technique_name", ""),
+        f"tactic: {m.get('tactic', '')}" if m.get("tactic") else "",
+        f"risk: {event.get('risk', '')}" if event.get("risk") else "",
+    ]
+    return " | ".join(p for p in parts if p)
+
+
 def retrieve_similar(query_event, n_results=3, where=None):
     """
     Yeni bir olaya semantik olarak en benzer geçmiş vakaları döndürür (L3 retrieval).
@@ -121,7 +139,7 @@ def retrieve_similar(query_event, n_results=3, where=None):
     where: opsiyonel metadata filtresi, ör. {"risk": "CRITICAL"}.
     """
     # 1) Sorgu metnini kur: dict ise build_document ile (indekslemeyle simetri), str ise olduğu gibi
-    qtext = build_document(query_event) if isinstance(query_event, dict) else str(query_event)
+    qtext = build_query(query_event) if isinstance(query_event, dict) else str(query_event)
 
     # 2) Kalıcı koleksiyonu aç (indeks önceden kurulmuş olmalı)
     client = chromadb.PersistentClient(path=CHROMA_PATH)

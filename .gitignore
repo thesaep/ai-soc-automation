@@ -5,6 +5,6 @@ __pycache__/
 
 evtx_samples/
 sigma_repo/
-*.bak
+*.bak*
 chroma_db/
 PROJE_INSTRUCTION_*.md

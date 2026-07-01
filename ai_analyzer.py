@@ -77,6 +77,10 @@ def _format_event_fields(event):
 
 
 import anthropic
+try:
+    import semantic_retriever as _sr
+except Exception:
+    _sr = None  # retrieval opsiyonel: modül/indeks yoksa pipeline çalışmaya devam eder
 from dotenv import load_dotenv
 import os
 
@@ -136,12 +140,44 @@ def analyze_with_claude(events, return_results=False):
     # Tüm eventleri tek prompt'a birleştir
     # Her event için normalize + ham field'lar eklenir, Claude daha fazla context görür
     event_blocks = []
+    retrieval_blocks = []                       # L3: her olay için geçmiş benzer vakalar
     for i, event in enumerate(events):
         fields = _format_event_fields(event)
         block = f"EVENT #{i+1}:\n{fields}"
         event_blocks.append(block)
+        # --- L3 SEMANTIC RETRIEVAL ---
+        # event burada DÜZ şema (detection_type, risk, user, host — nested mitre/entity DEĞİL).
+        # build_query bunu fallback ile destekliyor (technique_id yoksa detection_type kullanır).
+        # Self'i incident_id ile (bu şemada None, filtre no-op ama zararsız), eşiksiz en yakın 2.
+        if _sr is not None:
+            try:
+                self_id = event.get("incident_id")
+                hits = _sr.retrieve_similar(event, n_results=4)
+                kept = []
+                for h in hits:
+                    if h.get("incident_id") and h["incident_id"] == self_id:
+                        continue
+                    kept.append(h)
+                    if len(kept) >= 2:
+                        break
+                if kept:
+                    lines = [f"For EVENT #{i+1} ({event.get('detection_type','?')}), similar past cases:"]
+                    for h in kept:
+                        lines.append(
+                            f"  - {h['technique_id']} ({h['risk']}, similarity={1-h['distance']:.2f}): {h['summary'][:120]}"
+                        )
+                    retrieval_blocks.append("\n".join(lines))
+            except Exception:
+                pass
 
     combined_events = "\n\n".join(event_blocks)
+    retrieval_section = ""
+    if retrieval_blocks:
+        retrieval_section = (
+            "\nPAST SIMILAR CASES (context hint from historical incidents — "
+            "may be unrelated, use your own judgment, do NOT treat as ground truth):\n"
+            + "\n".join(retrieval_blocks) + "\n"
+        )
 
     # Her event'in detection_type'ından MITRE context çek
     mitre_contexts = []
@@ -157,6 +193,7 @@ def analyze_with_claude(events, return_results=False):
 Analyze and assess the following {len(events)} security events:
 {mitre_section}
 {combined_events}
+{retrieval_section}
 RESPOND FOR EACH EVENT IN THIS FORMAT:
 EVENT #N:
 SOC ANALYSIS REPORT
