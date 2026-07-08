@@ -381,3 +381,12 @@ if __name__ == "__main__":
             print(f"\n  [OK] Pipeline tamamlandı | {len(all_events)} detection | "
                   f"{escalated} ESCALATE | {len(autolog_events)} AUTO-LOG | "
                   f"{len(chains)} zincir | {len(incident_ids)} incident | {elapsed}s")
+            # L3 indeks otomatik yenile — yeni incident loglandıysa ChromaDB güncelle
+            # Elle çalıştırmaya gerek kalmasın; boş pipeline'da (0 incident) atla
+            if incident_ids:
+                try:
+                    import semantic_retriever as _sr_idx
+                    _sr_idx.index_incidents()
+                    print(f"  [L3] Semantic indeks yenilendi ({_sr_idx.INCIDENTS_PATH})")
+                except Exception as _e:
+                    print(f"  [L3] Indeks yenileme atlandı: {_e}")
