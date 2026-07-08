@@ -344,6 +344,29 @@ def analyze_chain_with_claude(chain: dict, return_result: bool = False):
     if skipped > 0:
         combined += f"\n\n[NOT: Token optimizasyonu — {skipped} tekrarlayan olay özetlendi, toplam {len(incidents)} olaydan {len(incidents_to_use)} temsili örnek gösterildi]"
 
+    # --- L3 SEMANTIC RETRIEVAL (kill-chain) ---
+    # Zincirin ilk olayini anchor olarak kullan -> benzer gecmis kampanyalari cek
+    chain_retrieval_section = ''
+    if _sr is not None:
+        try:
+            anchor = incidents_to_use[0]
+            hits = _sr.retrieve_similar(anchor, n_results=4)
+            kept = []
+            for h in hits:
+                if h.get('incident_id') and h['incident_id'] == anchor.get('incident_id'):
+                    continue
+                kept.append(h)
+                if len(kept) >= 2:
+                    break
+            if kept:
+                rlines = ['Similar past campaigns (context hint -- use your own judgment):']
+                for h in kept:
+                    tag = 'HIGH' if h['distance'] < 0.75 else 'MEDIUM' if h['distance'] < 1.0 else 'LOW'
+                    rlines.append(f"  - {h['technique_id']} ({h['risk']}, match={tag}): {h['summary'][:120]}")
+                chain_retrieval_section = '\nPAST SIMILAR CAMPAIGNS (context hint -- may be unrelated, do NOT treat as ground truth):\n' + '\n'.join(rlines) + '\n'
+        except Exception:
+            pass
+
     # Kill-chain özeti
     tactics_str   = " -> ".join(chain.get("tactics", []))
     techniques_str = ", ".join(chain.get("techniques", []))
@@ -363,6 +386,7 @@ CHAIN SUMMARY:
 - Multi-stage attack: {"Yes" if is_multistage else "No"}
 EVENTS:
 {combined}
+{chain_retrieval_section}
 Assess this chain as a whole and respond in this format:
 KILL-CHAIN ANALYSIS:
 1. ATTACK CAMPAIGN ASSESSMENT:
