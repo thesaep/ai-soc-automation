@@ -88,6 +88,12 @@ def normalize_event(event):
     if event.get("user") and "\\" in str(event.get("user", "")):
         event["user"] = event["user"].split("\\")[-1]
     
+    # Splunk _time alanını event_time olarak taşı (ISO string)
+    # 'timestamp' adı kullanılmadı — incident_logger orada loglama anını yazıyor
+    if '_time' in event and event['_time'] not in (None, '', '-'):
+        event['event_time'] = str(event['_time'])
+    else:
+        event['event_time'] = '-'
     return event
 
 
@@ -176,6 +182,13 @@ def get_mitre_events(service, detection_name, spl_file, severity="HIGH", earlies
         if not spl_query.strip().startswith("search"):
             spl_query = "search " + spl_query
 
+        # _time her SPL sonucuna ekle: table varsa basa, yoksa sona fields+ ile
+        import re as _re
+        if '_time' not in spl_query:
+            if _re.search(r'\|\s*table', spl_query):
+                spl_query = _re.sub(r'(\|\s*table\s+)', r'| table _time, ', spl_query, count=1)
+            else:
+                spl_query = spl_query.rstrip() + ' | fields + _time'
         job = service.jobs.oneshot(
             spl_query,
             earliest_time=earliest,
