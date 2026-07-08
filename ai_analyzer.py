@@ -164,7 +164,7 @@ def analyze_with_claude(events, return_results=False):
                     lines = [f"For EVENT #{i+1} ({event.get('detection_type','?')}), similar past cases:"]
                     for h in kept:
                         lines.append(
-                            f"  - {h['technique_id']} ({h['risk']}, similarity={1-h['distance']:.2f}): {h['summary'][:120]}"
+                            f"  - {h['technique_id']} ({h['risk']}, match={'HIGH' if h['distance']<0.75 else 'MEDIUM' if h['distance']<1.0 else 'LOW'}): {h['summary'][:120]}"
                         )
                     retrieval_blocks.append("\n".join(lines))
             except Exception:
