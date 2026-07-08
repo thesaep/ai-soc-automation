@@ -1,1 +1,2 @@
-source="WinEventLog:Microsoft-Windows-Sysmon/Operational" EventCode=13 (TargetObject="*CurrentVersion*Run*" NOT TargetObject="*RunOnce*MsMpEng*" NOT TargetObject="*RunOnce*Edge*") NOT Image="*MsMpEng*" NOT Image="*splunk*" NOT Image="*Edge*" NOT Image="*msedge*" | table TargetObject,Details,Image,User,ComputerName
+source="WinEventLog:Microsoft-Windows-Sysmon/Operational" EventCode=13 (TargetObject="*CurrentVersion*Run*" NOT TargetObject="*RunOnce*MsMpEng*" NOT TargetObject="*RunOnce*Edge*") NOT Image="*MsMpEng*" NOT Image="*splunk*" NOT Image="*Edge*" NOT Image="*msedge*" | dedup TargetObject Image ComputerName
+| table TargetObject,Details,Image,User,ComputerName

@@ -1,1 +1,2 @@
-source="WinEventLog:Microsoft-Windows-Sysmon/Operational" EventCode=1 Image="*cmd.exe" (CommandLine="*&&*" (CommandLine="*set*" CommandLine="*environment*") OR CommandLine="*invoke*" OR CommandLine="*input*") NOT User="NT AUTHORITY\\SYSTEM" NOT ParentImage="*\\splunk*" | table Image,CommandLine,User,ParentImage,ProcessId,ComputerName
+source="WinEventLog:Microsoft-Windows-Sysmon/Operational" EventCode=1 Image="*cmd.exe" (CommandLine="*&&*" (CommandLine="*set*" CommandLine="*environment*") OR CommandLine="*invoke*" OR CommandLine="*input*") NOT User="NT AUTHORITY\\SYSTEM" NOT ParentImage="*\\splunk*" | dedup Image CommandLine User ComputerName
+| table Image,CommandLine,User,ParentImage,ProcessId,ComputerName
