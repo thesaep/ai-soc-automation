@@ -145,6 +145,9 @@ if __name__ == "__main__":
             pass
 
         _trend_store = {}  # fix: "0 şüpheli olay" durumunda da tanımlı olsun (NameError önleme)
+        escalate_events = []
+        ai_analyses = []
+        autolog_events = []
         if not all_events:
             print("\n  [*] Şüpheli olay bulunamadı")
         else:
