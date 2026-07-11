@@ -236,9 +236,9 @@ def format_triage_summary(result: dict) -> str:
     """Triage sonucunu okunabilir özet metnine çevirir."""
     stats = result["stats"]
     lines = []
-    lines.append(f"L2 TRIAGE: {stats['total']} olay değerlendirildi")
-    lines.append(f"  → ESCALATE (L4 Claude): {stats['escalated']} olay")
-    lines.append(f"  → AUTO-LOG (L2):        {stats['autologged']} olay")
+    lines.append(f"L2 TRIAGE: {stats['total']} events evaluated")
+    lines.append(f"  → ESCALATE (L4 Claude): {stats['escalated']} events")
+    lines.append(f"  → AUTO-LOG (L2):        {stats['autologged']} events")
     lines.append(f"  → Escalation rate:      %{int(stats['escalation_rate'])}")
     return "\n".join(lines)
 
@@ -258,4 +258,4 @@ if __name__ == "__main__":
     print()
     for ev in test_events:
         t = ev["_triage"]
-        print(f"{ev['detection_type'][:30]:32} skor={t['score']:3} {t['verdict']:10} {t['components']}")
+        print(f"{ev['detection_type'][:30]:32} score={t['score']:3} {t['verdict']:10} {t['components']}")

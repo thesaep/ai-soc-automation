@@ -21,10 +21,10 @@ from collections import Counter
 counts = Counter(e.get('detection_type', 'UNKNOWN') for e in events)
 
 print(f"\n{'='*60}")
-print(f"ÖZET — toplam {len(events)} event, {len(counts)} detection tetiklendi")
+print(f"SUMMARY - total {len(events)} events, {len(counts)} detections triggered")
 print(f"{'='*60}")
 for det, n in sorted(counts.items(), key=lambda x: -x[1]):
     print(f"  {n:>4}  {det}")
 
 if not counts:
-    print("  (hiç event yok — pencereyi genişlet veya test trafiği üret)")
+    print("  (no events - widen the window or generate test traffic)")

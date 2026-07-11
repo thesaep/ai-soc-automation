@@ -38,37 +38,37 @@ def send_email_alert(events, ai_analyses, trend_alerts=None):
 
     risks = [e.get('risk', 'HIGH') for e, _ in high_risk_pairs]
     top_risk = 'CRITICAL' if 'CRITICAL' in risks else 'HIGH'
-    subject = f"[{top_risk}] SOC ALERT: {len(high_risk_pairs)} Yüksek Riskli Olay | {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}"
+    subject = f"[{top_risk}] SOC ALERT: {len(high_risk_pairs)} High-Risk Events | {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}"
 
     body = f"""
-SOC OTOMATIK UYARI SISTEMI
-Tarih    : {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}
-Toplam   : {len(high_risk_pairs)} yüksek riskli olay
+SOC AUTOMATED ALERT SYSTEM
+Date     : {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}
+Total    : {len(high_risk_pairs)} high-risk events
 {'='*60}
-OLAY DETAYLARI
+EVENT DETAILS
 {'='*60}
 """
     # TREND uyarıları varsa email'e ekle
     if trend_alerts:
         body += f"""
 {'='*60}
-⚠ TREND UYARILARI
+⚠ TREND ALERTS
 {'='*60}
 """
         for tk, mc in trend_alerts.items():
             detection, host = tk.split("|") if "|" in tk else (tk, "-")
-            body += f"  * {detection} | {host} | {mc}x MONITOR — trend eşiği aşıldı\n"
+            body += f"  * {detection} | {host} | {mc}x MONITOR - trend threshold exceeded\n"
         body += f"{'='*60}\n"
 
     for i, (event, analysis) in enumerate(high_risk_pairs):
         body += f"""
-[{event.get('risk')}] OLAY #{i+1}
+[{event.get('risk')}] EVENT #{i+1}
 Detection    : {event.get('detection_type', '-')}
-Kullanici    : {event.get('user', '-')}
-Makine       : {event.get('host', '-')}
-Kaynak IP    : {event.get('src_ip', '-')}
-MITRE Teknik : {_get_technique_id(event.get('detection_type',''))}
-AI ANALIZI:
+User         : {event.get('user', '-')}
+Host         : {event.get('host', '-')}
+Source IP    : {event.get('src_ip', '-')}
+MITRE Tech   : {_get_technique_id(event.get('detection_type',''))}
+AI ANALYSIS:
 {analysis}
 {'-'*60}
 """
@@ -88,7 +88,7 @@ AI ANALIZI:
             server.send_message(msg)
     
     except Exception as e:
-        print(f"\n  [-] Email gönderilemedi: {e}")
+        print(f"\n  [-] Email failed to send: {e}")
 
 
 if __name__ == "__main__":
@@ -130,7 +130,7 @@ if __name__ == "__main__":
         ]
         _throttled = _before - len(all_events)
         if _throttled > 0:
-            print(f"  [THROTTLE] {_throttled} olay son 5dk'da zaten islendi — atlandi")
+            print(f"  [THROTTLE] {_throttled} events already processed in last 5min - skipped")
         # Kalan olayları throttle cache'e yaz
         _now_str = _now_t.isoformat()
         for _e in all_events:
@@ -149,7 +149,7 @@ if __name__ == "__main__":
         ai_analyses = []
         autolog_events = []
         if not all_events:
-            print("\n  [*] Şüpheli olay bulunamadı")
+            print("\n  [*] No suspicious events found")
         else:
             # Korelasyon için önce mevcut incident geçmişini yükle (zincir üyeliği skoru etkiler)
             try:
@@ -211,7 +211,7 @@ if __name__ == "__main__":
                 else:
                     duplicate_escalate.append(ev)
             if duplicate_escalate:
-                print(f"  [i] {len(duplicate_escalate)} duplike olay AUTO-LOG'a tasindi "
+                print(f"  [i] {len(duplicate_escalate)} duplicate events moved to AUTO-LOG "
                       f"— ayni teknik+kullanici kombinasyonu zaten analiz edildi (token tasarrufu)")
             autolog_events = triage["autolog"] + duplicate_escalate
             escalate_events = unique_escalate
@@ -222,9 +222,9 @@ if __name__ == "__main__":
             _esc_dup = len(duplicate_escalate)
             _autolog = len(triage["autolog"])
             _esc_rate = int((_esc_unique / _total * 100)) if _total > 0 else 0
-            print(f"L2 TRIAGE: {_total} olay degerlendirildi")
-            print(f"  -> ESCALATE (L4 Claude): {_esc_unique} olay (+ {_esc_dup} duplike AUTO-LOG'a tasindi)")
-            print(f"  -> AUTO-LOG (L2):        {_autolog} olay")
+            print(f"L2 TRIAGE: {_total} events evaluated")
+            print(f"  -> ESCALATE (L4 Claude): {_esc_unique} events (+ {_esc_dup} duplicates moved to AUTO-LOG)")
+            print(f"  -> AUTO-LOG (L2):        {_autolog} events")
             print(f"  -> Escalation rate:      %{_esc_rate}")
             # Triage print — aynı (detection, user, host) kombinasyonunu aggregated göster
             from collections import OrderedDict
@@ -275,7 +275,7 @@ if __name__ == "__main__":
 
             # L4: Sadece ESCALATE olanlar Claude'a gider
             if escalate_events:
-                print(f"\n  -> {len(escalate_events)} olay L4 (Claude) analizine yükseltildi")
+                print(f"\n  -> {len(escalate_events)} events escalated to L4 (Claude) analysis")
                 ai_analyses = analyze_with_claude(escalate_events, return_results=True)
                 # Faz 8.5: AI analiz sonucunu ev["_enrichment"]["ai"]'a yaz
                 for _ev, _analysis in zip(escalate_events, ai_analyses):
@@ -283,11 +283,11 @@ if __name__ == "__main__":
                         _ev["_enrichment"] = {"ioc": {}, "ai": {}, "asset": {}}
                     _ev["_enrichment"]["ai"] = {"analysis": _analysis}
             else:
-                print(f"\n  -> Hiçbir olay eşiği geçmedi, L4 atlandı (token tasarrufu)")
+                print(f"\n  -> No events passed threshold, L4 skipped (token savings)")
                 ai_analyses = []
 
             # Auto-log olanlar için Claude analizi yerine placeholder
-            autolog_analyses = ["[L2 AUTO-LOG] Skor eşiği altında, otomatik loglandı, izlemede."
+            autolog_analyses = ["[L2 AUTO-LOG] Below score threshold, auto-logged, under monitoring."
                                 for _ in autolog_events]
 
             # Tüm olayları logla (escalate + autolog), sırayı koru
@@ -297,7 +297,7 @@ if __name__ == "__main__":
             # combined_events = escalate + autolog = all_events sırası korunuyor
             combined_scores = triage["scores"]
             # Faz 7 + 8.5: Artifact enrichment — log'dan ÖNCE, _enrichment["ioc"] dolsun
-            print(f"\n  [ARTIFACT] IOC enrichment basliyor ({len(escalate_events)} ESCALATE olay)...")
+            print(f"\n  [ARTIFACT] IOC enrichment starting ({len(escalate_events)} ESCALATE events)...")
             for ev in escalate_events:
                 # inc_id henüz yok — None ile çalış (seen_count + IOC pivot güncellenir)
                 artifacts = process_event_artifacts(ev, None)
@@ -334,7 +334,7 @@ if __name__ == "__main__":
 
             if chains:
                 print(f"\n{'='*65}")
-                print(f"  [CHAIN] KORELASYON: {len(all_incidents)} olay ({len(all_events)} yeni) -> {len(chains)} zincir")
+                print(f"  [CHAIN] CORRELATION: {len(all_incidents)} events ({len(all_events)} new) -> {len(chains)} chains")
                 print(f"{'='*65}")
                 # Sadece yeni incident_id'leri içeren zincirleri derin analiz et
                 # Geçmiş zincirler zaten analiz edilmişti — duplikasyonu önler
@@ -349,7 +349,7 @@ if __name__ == "__main__":
                 if has_new and (chain["is_multistage"] or chain["chain_risk"] == "CRITICAL"):
                     analyze_chain_with_claude(chain)
                 elif has_new:
-                    print(f"\n  {risk_icon} {chain['chain_risk']:<8} {chain['chain_id']} | {chain['incident_count']} olay | {tactics}")
+                    print(f"\n  {risk_icon} {chain['chain_risk']:<8} {chain['chain_id']} | {chain['incident_count']} events | {tactics}")
 
             # MONITOR olayları için TREND uyarısı — ayrı dosyadan bağımsız sayaç
             import json as _tj
@@ -362,7 +362,7 @@ if __name__ == "__main__":
             monitor_events = triage.get("monitor", [])
             if monitor_events:
                 print(f"\n{'-'*65}")
-                print(f"  [MONITOR] {len(monitor_events)} olay izlemede")
+                print(f"  [MONITOR] {len(monitor_events)} events under monitoring")
                 for ev in monitor_events:
                     # Key: (detection, host) — user boş olabilir, host sabit
                     _tk = f"{ev.get('detection_type','')}|{ev.get('host','-')}"
@@ -371,8 +371,8 @@ if __name__ == "__main__":
                     trend_str = f" ⚠ TREND ({mc}x MONITOR)" if mc >= 3 else f" ({mc}x)"
                     # AI'a trend context'i ver — eşik aşıldıysa event'e ekle
                     if mc >= 3:
-                        ev["_trend_info"] = f"Bu olay {mc} kez MONITOR seviyesinde tekrarlandı ve trend eşiği ({3}x) aşıldığı için analize alındı. Tekrarlayan pattern bağlamında değerlendir."
-                    print(f"  * {ev.get('detection_type','')[:40]:<40} | {ev.get('user','-')} | skor:{ev.get('_triage',{}).get('score',0)}{trend_str}")
+                        ev["_trend_info"] = f"This event has repeated {mc} times at MONITOR level and exceeded the trend threshold ({3}x), so it was escalated for analysis. Assess it in the context of a recurring pattern."
+                    print(f"  * {ev.get('detection_type','')[:40]:<40} | {ev.get('user','-')} | score:{ev.get('_triage',{}).get('score',0)}{trend_str}")
                 # Trend store'u kaydet
                 try:
                     with open(_TREND_FILE, "w") as _tf:
@@ -392,25 +392,25 @@ if __name__ == "__main__":
             print(f"\n{'-'*65}")
             risk_dist = Counter(e.get('risk', '-') for e in autolog_events)
             risk_str = " | ".join(f"{r}x{c}" for r, c in sorted(risk_dist.items()))
-            print(f"  [OZET] AUTO-LOG ÖZET ({len(autolog_events)} olay — {risk_str} — Claude'a gönderilmedi)")
+            print(f"  [SUMMARY] AUTO-LOG SUMMARY ({len(autolog_events)} events - {risk_str} - not sent to Claude)")
             print(f"{'-'*65}")
             for tech, count in tech_counts.most_common():
                 print(f"  * {tech[:45]:<45} x{count}")
-            print(f"  Etkilenen entity'ler: {', '.join(entities)}")
-            print(f"  [i]  Manuel inceleme önerisi: Splunk'ta ilgili detection'ları kontrol et")
+            print(f"  Affected entities: {', '.join(entities)}")
+            print(f"  [i]  Manual review suggestion: check related detections in Splunk")
             print(f"{'-'*65}")
             # Pipeline özeti
             elapsed = round(time.time() - start_time, 1)
             escalated = len(all_events) - len(autolog_events)
-            print(f"\n  [OK] Pipeline tamamlandı | {len(all_events)} detection | "
+            print(f"\n  [OK] Pipeline completed | {len(all_events)} detection | "
                   f"{escalated} ESCALATE | {len(autolog_events)} AUTO-LOG | "
-                  f"{len(chains)} zincir | {len(incident_ids)} incident | {elapsed}s")
+                  f"{len(chains)} chains | {len(incident_ids)} incidents | {elapsed}s")
             # L3 indeks otomatik yenile — yeni incident loglandıysa ChromaDB güncelle
             # Elle çalıştırmaya gerek kalmasın; boş pipeline'da (0 incident) atla
             if incident_ids:
                 try:
                     import semantic_retriever as _sr_idx
                     _sr_idx.index_incidents()
-                    print(f"  [L3] Semantic indeks yenilendi ({_sr_idx.INCIDENTS_PATH})")
+                    print(f"  [L3] Semantic index refreshed ({_sr_idx.INCIDENTS_PATH})")
                 except Exception as _e:
-                    print(f"  [L3] Indeks yenileme atlandı: {_e}")
+                    print(f"  [L3] Index refresh skipped: {_e}")

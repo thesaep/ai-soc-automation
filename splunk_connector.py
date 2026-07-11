@@ -18,10 +18,10 @@ def connect_splunk():
             username=os.getenv("SPLUNK_USERNAME"),
             password=os.getenv("SPLUNK_PASSWORD")
         )
-        print(f"[+] Splunk bağlantısı başarılı — versiyon: {service.info['version']}")
+        print(f"[+] Splunk connection successful - version: {service.info['version']}")
         return service
     except Exception as e:
-        print(f"[-] Splunk bağlantısı başarısız: {e}")
+        print(f"[-] Splunk connection failed: {e}")
         return None
 
 def load_query(query_file, threshold=5):
@@ -36,7 +36,7 @@ def load_query(query_file, threshold=5):
         query = query.replace("{threshold}", str(threshold))
         return query
     except FileNotFoundError:
-        print(f"[-] Sorgu dosyası bulunamadı: {query_file}")
+        print(f"[-] Query file not found: {query_file}")
         return None
 
 def _mv_last(value):
@@ -125,11 +125,11 @@ def get_brute_force_events(service, threshold=5, query_file="queries/brute_force
             if isinstance(result, dict):
                 events.append(result)
 
-        print(f"[+] {len(events)} şüpheli olay bulundu")
+        print(f"[+] {len(events)} suspicious events found")
         return events
 
     except Exception as e:
-        print(f"[-] Sorgu hatası: {e}")
+        print(f"[-] Query error: {e}")
         return []
 
 def print_events(events):
@@ -137,7 +137,7 @@ def print_events(events):
     Olayları okunabilir formatta ekrana yazdırır.
     """
     if not events:
-        print("[*] Şüpheli olay bulunamadı")
+        print("[*] No suspicious events found")
         return
 
     print("\n" + "="*60)
@@ -152,9 +152,9 @@ def print_events(events):
         src_ip = event.get('src_ip', '-')
         host = event.get('host', '-')
 
-        print(f"\n[{risk}] Kullanıcı: {user}")
-        print(f"  Başarısız giriş : {failures}")
-        print(f"  Başarılı giriş  : {successes}")
+        print(f"\n[{risk}] User: {user}")
+        print(f"  Failed logon  : {failures}")
+        print(f"  Success logon : {successes}")
         print(f"  Kaynak IP       : {src_ip}")
         print(f"  Hedef makine    : {host}")
 
@@ -208,11 +208,11 @@ def get_mitre_events(service, detection_name, spl_file, severity="HIGH", earlies
                 events.append(result)
 
         if events:
-            print(f"[!] {detection_name}: {len(events)} olay bulundu")
+            print(f"[!] {detection_name}: {len(events)} events found")
         return events
 
     except Exception as e:
-        print(f"[-] {detection_name} sorgu hatası: {e}")
+        print(f"[-] {detection_name} query error: {e}")
         return []
 
 
@@ -284,5 +284,5 @@ def get_all_mitre_events(service, earliest="-5m"):
                                   severity=severity, earliest=earliest)
         all_events.extend(events)
 
-    print(f"\n[+] Toplam {len(all_events)} MITRE event bulundu")
+    print(f"\n[+] Total {len(all_events)} MITRE events found")
     return all_events

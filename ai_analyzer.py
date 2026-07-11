@@ -132,7 +132,7 @@ def analyze_with_claude(events, return_results=False):
     return_results=False -> sadece ekrana yazdırır
     """
     if not events:
-        print(f"\n{Colors.GRAY}  ℹ  Analiz edilecek olay bulunamadı.{Colors.RESET}")
+        print(f"\n{Colors.GRAY}  ℹ  No events to analyze.{Colors.RESET}")
         return []
 
     client = anthropic.Anthropic(api_key=os.getenv("ANTHROPIC_API_KEY"))
@@ -179,6 +179,24 @@ def analyze_with_claude(events, return_results=False):
             + "\n".join(retrieval_blocks) + "\n"
         )
 
+    # Faz 8.6: Knowledge Base notlari — mesru-arac/altyapi + closed-case (scope-aware)
+    kb_section = ""
+    try:
+        from knowledge_base import get_kb_context_for_event
+        _kb_notes = []
+        for _e in events:
+            for _n in get_kb_context_for_event(_e):
+                _line = f"- [{_n['type']}] {_n['note']}"
+                if _line not in _kb_notes:
+                    _kb_notes.append(_line)
+        if _kb_notes:
+            kb_section = (
+                "\nKNOWN CONTEXT (verified analyst knowledge base — "
+                "treat as GROUND TRUTH, unlike the hints above):\n"
+                + "\n".join(_kb_notes) + "\n"
+            )
+    except Exception:
+        pass
     # Her event'in detection_type'ından MITRE context çek
     mitre_contexts = []
     for event in events:
@@ -193,7 +211,7 @@ def analyze_with_claude(events, return_results=False):
 Analyze and assess the following {len(events)} security events:
 {mitre_section}
 {combined_events}
-{retrieval_section}
+{retrieval_section}{kb_section}
 RESPOND FOR EACH EVENT IN THIS FORMAT:
 EVENT #N:
 SOC ANALYSIS REPORT
@@ -229,8 +247,8 @@ Now respond for {len(events)} events in this format."""
 
     # Parse başarısızsa fallback
     if len(parts) != len(events):
-        print(f"\n{Colors.YELLOW}  ⚠  Parse uyarısı: {len(events)} olay beklendi, "
-              f"{len(parts)} parça bulundu.{Colors.RESET}")
+        print(f"\n{Colors.YELLOW}  ⚠  Parse warning: {len(events)} events expected, "
+              f"{len(parts)} parts found.{Colors.RESET}")
         while len(parts) < len(events):
             parts.append("Analiz alınamadı.")
 
@@ -256,7 +274,7 @@ Now respond for {len(events)} events in this format."""
         )
 
         # Olay detayları
-        print(f"\n{Colors.BOLD}{Colors.BLUE}  OLAY BİLGİLERİ{Colors.RESET}")
+        print(f"\n{Colors.BOLD}{Colors.BLUE}  EVENT DETAILS{Colors.RESET}")
         print_divider(Colors.BLUE)
         print_field("Detection     :", det_type)
         print_field("Kullanıcı     :", user)
@@ -273,7 +291,7 @@ Now respond for {len(events)} events in this format."""
         # AI analiz çıktısı
         analysis_text = parts[i] if i < len(parts) else "Analiz alınamadı."
 
-        print(f"\n{Colors.BOLD}{Colors.CYAN}  AI DEĞERLENDİRMESİ{Colors.RESET}")
+        print(f"\n{Colors.BOLD}{Colors.CYAN}  AI ASSESSMENT{Colors.RESET}")
         print_divider(Colors.CYAN)
         for line in analysis_text.split('\n'):
             print(f"  {Colors.WHITE}{line}{Colors.RESET}")
@@ -281,13 +299,13 @@ Now respond for {len(events)} events in this format."""
         # Risk bazlı aksiyon mesajı
         print()
         if risk == "CRITICAL":
-            print(f"  {Colors.BG_RED}{Colors.WHITE}{Colors.BOLD}  [CRITICAL] CRITICAL — Email bildirimi gönderildi, olay loglandı  {Colors.RESET}")
+            print(f"  {Colors.BG_RED}{Colors.WHITE}{Colors.BOLD}  [CRITICAL] CRITICAL - Email alert sent, incident logged  {Colors.RESET}")
         elif risk == "HIGH":
-            print(f"  {Colors.RED}{Colors.BOLD}  [HIGH]  HIGH — Email bildirimi gönderildi, olay loglandı{Colors.RESET}")
+            print(f"  {Colors.RED}{Colors.BOLD}  [HIGH]  HIGH - Email alert sent, incident logged{Colors.RESET}")
         elif risk == "MEDIUM":
-            print(f"  {Colors.YELLOW}{Colors.BOLD}  [MEDIUM] MEDIUM — Olay loglandı, izlemeye devam{Colors.RESET}")
+            print(f"  {Colors.YELLOW}{Colors.BOLD}  [MEDIUM] MEDIUM - Incident logged, monitoring continues{Colors.RESET}")
         else:
-            print(f"  {Colors.GREEN}{Colors.BOLD}  [OK] LOW — Olay loglandı{Colors.RESET}")
+            print(f"  {Colors.GREEN}{Colors.BOLD}  [OK] LOW - Incident logged{Colors.RESET}")
 
         analyses.append(analysis_text)
 
@@ -342,7 +360,7 @@ def analyze_chain_with_claude(chain: dict, return_result: bool = False):
 
     combined = "\n\n".join(incident_blocks)
     if skipped > 0:
-        combined += f"\n\n[NOT: Token optimizasyonu — {skipped} tekrarlayan olay özetlendi, toplam {len(incidents)} olaydan {len(incidents_to_use)} temsili örnek gösterildi]"
+        combined += f"\n\n[NOTE: Token optimization - {skipped} repeated events summarized, showing {len(incidents_to_use)} representative samples out of {len(incidents)} total]"
 
     # --- L3 SEMANTIC RETRIEVAL (kill-chain) ---
     # Zincirin ilk olayini anchor olarak kullan -> benzer gecmis kampanyalari cek
@@ -367,6 +385,28 @@ def analyze_chain_with_claude(chain: dict, return_result: bool = False):
         except Exception:
             pass
 
+    # Faz 8.6: Knowledge Base notlari (kill-chain) — scope-aware
+    chain_kb_section = ""
+    try:
+        from knowledge_base import get_kb_context_for_event
+        _ckb = []
+        for _inc in incidents_to_use:
+            _ev = {
+                "detection_type": _inc.get("technique_id", "") or _inc.get("detection_type", ""),
+                "src_ip": _inc.get("entity", {}).get("src_ip", "") if isinstance(_inc.get("entity"), dict) else _inc.get("src_ip", ""),
+            }
+            for _n in get_kb_context_for_event(_ev):
+                _line = f"- [{_n['type']}] {_n['note']}"
+                if _line not in _ckb:
+                    _ckb.append(_line)
+        if _ckb:
+            chain_kb_section = (
+                "\nKNOWN CONTEXT (verified analyst knowledge base — "
+                "treat as GROUND TRUTH, unlike the hints above):\n"
+                + "\n".join(_ckb) + "\n"
+            )
+    except Exception:
+        pass
     # Kill-chain özeti
     tactics_str   = " -> ".join(chain.get("tactics", []))
     techniques_str = ", ".join(chain.get("techniques", []))
@@ -386,7 +426,7 @@ CHAIN SUMMARY:
 - Multi-stage attack: {"Yes" if is_multistage else "No"}
 EVENTS:
 {combined}
-{chain_retrieval_section}
+{chain_retrieval_section}{chain_kb_section}
 Assess this chain as a whole and respond in this format:
 KILL-CHAIN ANALYSIS:
 1. ATTACK CAMPAIGN ASSESSMENT:
@@ -412,7 +452,7 @@ RULES:
         f"[CHAIN] KİLL-CHAIN ANALİZİ  |  {chain['entity']['user']} @ {chain['entity']['host']}  |  {chain_risk}",
         rc
     )
-    print(f"\n{Colors.BOLD}{Colors.BLUE}  ZİNCİR BİLGİLERİ{Colors.RESET}")
+    print(f"\n{Colors.BOLD}{Colors.BLUE}  CHAIN DETAILS{Colors.RESET}")
     print_divider(Colors.BLUE)
     print_field("Zincir ID     :", chain.get("chain_id", "-"))
     print_field("Olay Sayısı   :", str(len(incidents)))
@@ -429,23 +469,23 @@ RULES:
         )
         analysis = message.content[0].text
 
-        print(f"\n{Colors.BOLD}{Colors.CYAN}  KAMPANYA ANALİZİ{Colors.RESET}")
+        print(f"\n{Colors.BOLD}{Colors.CYAN}  CAMPAIGN ANALYSIS{Colors.RESET}")
         print_divider(Colors.CYAN)
         for line in analysis.split("\n"):
             print(f"  {Colors.WHITE}{line}{Colors.RESET}")
 
         print()
         if chain_risk == "CRITICAL":
-            print(f"  {Colors.BG_RED}{Colors.WHITE}{Colors.BOLD}  [CRITICAL] KRİTİK KAMPANYA — Koordineli saldırı tespit edildi  {Colors.RESET}")
+            print(f"  {Colors.BG_RED}{Colors.WHITE}{Colors.BOLD}  [CRITICAL] CRITICAL CAMPAIGN - Coordinated attack detected  {Colors.RESET}")
         elif chain_risk == "HIGH":
-            print(f"  {Colors.RED}{Colors.BOLD}  [HIGH]  YÜKSEK RİSKLİ KAMPANYA — Derhal müdahale gerekiyor{Colors.RESET}")
+            print(f"  {Colors.RED}{Colors.BOLD}  [HIGH]  HIGH-RISK CAMPAIGN - Immediate response required{Colors.RESET}")
 
         if return_result:
             return analysis
         return ""
 
     except Exception as e:
-        print(f"[-] Chain analiz hatası: {e}")
+        print(f"[-] Chain analysis error: {e}")
         return ""
 
 if __name__ == "__main__":

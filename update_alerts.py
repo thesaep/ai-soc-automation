@@ -93,7 +93,7 @@ for alert in alerts:
             with open(spl_path, "r") as f:
                 spl_content = f.read().strip()
         except FileNotFoundError:
-            print(f"[!] SPL dosyası bulunamadı: {spl_path}")
+            print(f"[!] SPL file not found: {spl_path}")
             continue
 
     data = {

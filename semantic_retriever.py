@@ -106,10 +106,10 @@ def index_incidents():
     if docs:
         col.add(documents=docs, metadatas=metas, ids=ids)  # embedding burada üretilir
 
-    print(f"ham kayıt          : {len(records)}")
-    print(f"indekslenen vaka   : {len(reps)}")
-    print(f"koleksiyon count   : {col.count()}")
-    print("\n--- örnek indekslenen vakalar ---")
+    print(f"raw records        : {len(records)}")
+    print(f"indexed cases      : {len(reps)}")
+    print(f"collection count   : {col.count()}")
+    print("\n--- sample indexed cases ---")
     for m in metas[:3]:
         print(f"  {m['technique_id']:12} | {m['risk']:8} | user={m['user']} host={m['host']}")
 

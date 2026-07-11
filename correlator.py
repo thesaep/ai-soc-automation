@@ -221,7 +221,7 @@ if __name__ == "__main__":
         with open("logs/incidents.json", "r", encoding="utf-8") as f:
             incidents = json.load(f)
     except (FileNotFoundError, json.JSONDecodeError):
-        print("[-] incidents.json okunamadı")
+        print("[-] incidents.json could not be read")
         incidents = []
 
     chains = correlate_incidents(incidents, time_window_minutes=60)

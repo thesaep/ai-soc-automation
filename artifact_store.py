@@ -42,7 +42,7 @@ def _find_artifact(ioc_type: str, value: str, artifacts: list) -> dict | None:
     return None
 
 
-def create_or_update_artifact(ioc_type: str, value: str, incident_id: str) -> dict:
+def create_or_update_artifact(ioc_type: str, value: str, incident_id: str, technique_id: str = None) -> dict:
     """
     Artifact yoksa yarat, varsa incident_id ekle + last_seen güncelle.
     Enrichment'ı her zaman çek (cache'den gelir, API çağrısı olmaz).
@@ -61,14 +61,14 @@ def create_or_update_artifact(ioc_type: str, value: str, incident_id: str) -> di
         existing["last_seen"] = now
         existing["seen_count"] = existing.get("seen_count", 1) + 1
         # Enrichment'ı güncelle (cache'den gelir)
-        enrichment = enrich_ioc(ioc_type, value)
+        enrichment = enrich_ioc(ioc_type, value, technique_id)
         if enrichment.get("verdict") != "skipped":
             existing["enrichment"] = enrichment
         _save_artifacts(artifacts)
         return existing
     else:
         # Yeni artifact — enrichment al, kaydet
-        enrichment = enrich_ioc(ioc_type, value)
+        enrichment = enrich_ioc(ioc_type, value, technique_id)
         artifact = {
             "artifact_id":  str(uuid.uuid4()),
             "ioc_type":     ioc_type,       # ip / domain / hash
@@ -92,13 +92,27 @@ def process_event_artifacts(event: dict, incident_id: str) -> list:
     iocs = extract_iocs_from_event(event)
     results = []
 
+    # Faz 8.6: olayin MITRE teknigini cikar -> enrich_ioc scope filtresine gecir
+    _tech = ""
+    try:
+        import re as _re
+        _m = _re.search(r"T\d{4}(?:\.\d{3})?", event.get("detection_type", "") or "")
+        _tech = _m.group(0) if _m else ""
+    except Exception:
+        _tech = ""
+
     for ioc in iocs:
-        artifact = create_or_update_artifact(ioc["type"], ioc["value"], incident_id)
+        artifact = create_or_update_artifact(ioc["type"], ioc["value"], incident_id, _tech)
         results.append(artifact)
         verdict = artifact["enrichment"].get("verdict", "unknown")
         score   = artifact["enrichment"].get("risk_score", 0)
         cached  = artifact["enrichment"].get("cached", False)
-        cache_str = "[CACHE]" if cached else "[API]"
+        if verdict == "known_legitimate":
+            cache_str = "[KB]"
+        elif cached:
+            cache_str = "[CACHE]"
+        else:
+            cache_str = "[API]"
         print(f"  [ARTIFACT] {ioc['type'].upper()} {ioc['value']} "
               f"→ {verdict.upper()} (score:{score}) {cache_str}")
 
@@ -160,20 +174,20 @@ if __name__ == "__main__":
         "risk":           "HIGH",
     }
 
-    print("[1] Olaydan artifact çıkar ve enrichment al:")
+    print("[1] Extract artifact from event and enrich:")
     artifacts = process_event_artifacts(test_event, incident_id="test-incident-001")
     for a in artifacts:
         print(f"    artifact_id: {a['artifact_id'][:8]}... | "
               f"seen_count: {a['seen_count']}")
 
-    print("[2] Aynı olay tekrar (seen_count artmalı, cache'den gelmeli):")
+    print("[2] Same event again (seen_count should increase, from cache):")
     artifacts2 = process_event_artifacts(test_event, incident_id="test-incident-001")
     for a in artifacts2:
-        print(f"    seen_count: {a['seen_count']} ← 2 olmalı | cached: {a['enrichment'].get('cached')}")
+        print(f"    seen_count: {a['seen_count']} <- should be 2 | cached: {a['enrichment'].get('cached')}")
 
-    print("[3] Özet:")
+    print("[3] Summary:")
     summary = get_artifact_summary()
     print(f"    {summary}")
 
     print("-" * 50)
-    print("[TEST] Tamamlandı")
+    print("[TEST] Completed")

@@ -211,6 +211,7 @@ def log_incident_v2(events: list, ai_analyses: list, triage_scores: list = None)
     prev_hash = existing_logs[-1].get("hash", "genesis") if existing_logs else "genesis"
 
     incident_ids = []
+    _n_new = _n_aggregated = _n_skipped = 0
     # Aggregation için son 5 dakikadaki kayıtların hızlı lookup'ı
     from datetime import datetime, timezone, timedelta
     _now = datetime.now(timezone.utc)
@@ -252,6 +253,7 @@ def log_incident_v2(events: list, ai_analyses: list, triage_scores: list = None)
             if _ev_ikey in _logged_keys:
                 print(f"  [~] SKIPPED (8h idempotency) | {_ev_ikey[0]} | {_ev_ikey[1]}")
                 incident_ids.append(None)
+                _n_skipped += 1
                 continue
             _logged_keys.add(_ev_ikey)
             # Aggregation kontrolü
@@ -267,6 +269,7 @@ def log_incident_v2(events: list, ai_analyses: list, triage_scores: list = None)
                 incident_ids.append(existing_logs[_idx]["incident_id"])
                 print(f"  [~] Aggregated | ID: {existing_logs[_idx]['incident_id'][:8]}... "
                       f"| {_ev_key[0][:30]} | count: {existing_logs[_idx]['metrics']['count']}")
+                _n_aggregated += 1
                 continue
             # build_incident yerine direkt burada hash zincirini yönet
             _tv = triage_scores[i]["verdict"] if triage_scores and i < len(triage_scores) else "-"
@@ -274,20 +277,22 @@ def log_incident_v2(events: list, ai_analyses: list, triage_scores: list = None)
             incident = _build_incident_with_hash(event, analysis, prev_hash, triage_verdict=_tv, triage_score=_ts)
             existing_logs.append(incident)
             incident_ids.append(incident["incident_id"])
+            _n_new += 1
             prev_hash = incident["hash"]  # bir sonraki incident bu hash'i kullanacak
             print(f"  [+] Incident logged | ID: {incident['incident_id'][:8]}... "
                   f"| {incident['mitre']['technique_id']} "
                   f"| {incident['risk']} "
                   f"| hash: {incident['hash'][:12]}...")
         except Exception as e:
-            print(f"  [-] Incident log hatası: {e}")
+            print(f"  [-] Incident log error: {e}")
 
     try:
         with open(LOG_FILE, "w", encoding="utf-8") as f:
             json.dump(existing_logs, f, ensure_ascii=False, indent=2)
-        print(f"\n  [+] {len(incident_ids)} incident yazıldı -> {LOG_FILE}")
+        print(f"\n  [+] Incident logging: {_n_new} new, {_n_aggregated} aggregated, "
+              f"{_n_skipped} skipped -> {LOG_FILE}")
     except Exception as e:
-        print(f"  [-] Log dosyası yazma hatası: {e}")
+        print(f"  [-] Log file write error: {e}")
 
     return incident_ids
 
@@ -302,7 +307,7 @@ def verify_chain() -> bool:
         with open(LOG_FILE, "r", encoding="utf-8") as f:
             logs = json.load(f)
     except (FileNotFoundError, json.JSONDecodeError):
-        print("[-] Log dosyası bulunamadı veya geçersiz")
+        print("[-] Log file not found or invalid")
         return False
 
     prev_hash = "genesis"
@@ -311,11 +316,11 @@ def verify_chain() -> bool:
         incident_without_hash = {k: v for k, v in incident.items() if k != "hash"}
         computed = _compute_hash(incident_without_hash, prev_hash)
         if computed != stored_hash:
-            print(f"[-] Zincir kırık! Incident #{i} | ID: {incident.get('incident_id', '?')[:8]}...")
+            print(f"[-] Chain broken! Incident #{i} | ID: {incident.get('incident_id', '?')[:8]}...")
             return False
         prev_hash = stored_hash
 
-    print(f"[+] Zincir doğrulandı: {len(logs)} incident, tümü sağlam")
+    print(f"[+] Chain verified: {len(logs)} incidents, all intact")
     return True
 
 

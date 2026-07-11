@@ -176,7 +176,7 @@ def _otx_tags(pulse_count: int) -> list[str]:
 
 # ── Ana enrichment fonksiyonu ─────────────────────────────────────────────────
 
-def enrich_ioc(ioc_type: str, value: str) -> dict:
+def enrich_ioc(ioc_type: str, value: str, technique_id: str = None) -> dict:
     """
     Tek giriş noktası. ioc_type: 'ip' | 'domain' | 'hash'
     1. Cache kontrol → varsa döndür (API çağrısı yok)
@@ -199,6 +199,26 @@ def enrich_ioc(ioc_type: str, value: str) -> dict:
         return {"ioc_type": ioc_type, "value": value, "verdict": "skipped", "reason": "empty_or_local"}
     if ioc_type == "ip" and _is_private_ip(value):
         return {"ioc_type": ioc_type, "value": value, "verdict": "skipped", "reason": "private_ip"}
+    # Faz 8.6: Knowledge Base scope-aware mesru-arac kontrolu (API'a gitmeden don)
+    try:
+        from knowledge_base import is_legitimate
+        _kb_hit = None
+        if ioc_type == "ip":
+            _kb_hit = (is_legitimate(value, "ip_prefix", technique_id)
+                       or is_legitimate(value, "ip", technique_id))
+        elif ioc_type == "domain":
+            _kb_hit = is_legitimate(value, "domain", technique_id)
+        if _kb_hit:
+            return {
+                "ioc_type": ioc_type, "value": value,
+                "verdict": "known_legitimate", "risk_score": 0,
+                "reason": _kb_hit.get("reason", ""),
+                "scope": _kb_hit.get("scope", "detection"),
+                "kb_id": _kb_hit.get("kb_id"),
+                "sources": [], "tags": ["known_legitimate"], "cached": False,
+            }
+    except Exception:
+        pass
 
     # Cache kontrolü
     cached = _cache_get(ioc_type, value)
@@ -329,7 +349,7 @@ def _is_internal_domain(domain: str) -> bool:
 # ── Test ──────────────────────────────────────────────────────────────────────
 
 if __name__ == "__main__":
-    print("[TEST] IOC Enricher — API bağlantı testi")
+    print("[TEST] IOC Enricher - API connection test")
     print("-" * 50)
 
     # Test IP: bilinen kötü IP (AbuseIPDB test IP'si)
@@ -340,14 +360,14 @@ if __name__ == "__main__":
     print(f"    Cached: {result.get('cached')}")
 
     # İkinci sorgu — cache'den gelmeli
-    print(f"[2] Aynı IP tekrar (cache testi): {test_ip}")
+    print(f"[2] Same IP again (cache test): {test_ip}")
     result2 = enrich_ioc("ip", test_ip)
-    print(f"    Cached: {result2.get('cached')} ← True olmalı")
+    print(f"    Cached: {result2.get('cached')} <- should be True")
 
     # Private IP — skip olmalı
     print(f"[3] Private IP (skip testi): 192.168.1.1")
     result3 = enrich_ioc("ip", "192.168.1.1")
-    print(f"    Verdict: {result3.get('verdict')} ← 'skipped' olmalı")
+    print(f"    Verdict: {result3.get('verdict')} <- should be 'skipped'")
 
     print("-" * 50)
-    print("[TEST] Tamamlandı")
+    print("[TEST] Completed")
