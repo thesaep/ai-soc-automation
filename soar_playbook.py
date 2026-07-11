@@ -277,6 +277,11 @@ if __name__ == "__main__":
             if escalate_events:
                 print(f"\n  -> {len(escalate_events)} olay L4 (Claude) analizine yükseltildi")
                 ai_analyses = analyze_with_claude(escalate_events, return_results=True)
+                # Faz 8.5: AI analiz sonucunu ev["_enrichment"]["ai"]'a yaz
+                for _ev, _analysis in zip(escalate_events, ai_analyses):
+                    if "_enrichment" not in _ev:
+                        _ev["_enrichment"] = {"ioc": {}, "ai": {}, "asset": {}}
+                    _ev["_enrichment"]["ai"] = {"analysis": _analysis}
             else:
                 print(f"\n  -> Hiçbir olay eşiği geçmedi, L4 atlandı (token tasarrufu)")
                 ai_analyses = []
@@ -291,13 +296,29 @@ if __name__ == "__main__":
             # triage["scores"] all_events sırasıyla eşleşiyor
             # combined_events = escalate + autolog = all_events sırası korunuyor
             combined_scores = triage["scores"]
-            incident_ids = log_incident_v2(combined_events, combined_analyses, triage_scores=combined_scores)
-            # Faz 7: Artifact-driven IOC enrichment — sadece ESCALATE olaylar
+            # Faz 7 + 8.5: Artifact enrichment — log'dan ÖNCE, _enrichment["ioc"] dolsun
             print(f"\n  [ARTIFACT] IOC enrichment basliyor ({len(escalate_events)} ESCALATE olay)...")
+            for ev in escalate_events:
+                # inc_id henüz yok — None ile çalış (seen_count + IOC pivot güncellenir)
+                artifacts = process_event_artifacts(ev, None)
+                # Faz 8.5: enrichment bloğu — orijinal ev alanlarına dokunmadan yan veri
+                if "_enrichment" not in ev:
+                    ev["_enrichment"] = {"ioc": {}, "ai": {}, "asset": {}}
+                for art in artifacts:
+                    ioc_val = art.get("value", "")
+                    if ioc_val:
+                        ev["_enrichment"]["ioc"][ioc_val] = {
+                            "ioc_type":   art.get("ioc_type"),
+                            "verdict":    art.get("enrichment", {}).get("verdict"),
+                            "risk_score": art.get("enrichment", {}).get("risk_score"),
+                            "sources":    art.get("enrichment", {}).get("sources", []),
+                            "tags":       art.get("enrichment", {}).get("tags", []),
+                        }
+            incident_ids = log_incident_v2(combined_events, combined_analyses, triage_scores=combined_scores)
+            # Faz 7: inc_id'yi artifact'a geri yaz (pivot için)
             for ev, inc_id in zip(escalate_events, incident_ids[:len(escalate_events)]):
-                # Artifact enrichment: inc_id None olsa bile çalış (seen_count + triage sinyal)
-                # inc_id None = idempotency skip, ama IOC pivot verisi yine güncellenmeli
-                process_event_artifacts(ev, inc_id)
+                if inc_id:
+                    process_event_artifacts(ev, inc_id)
 
             # Faz 5: Korelasyon — güncel incident geçmişiyle zincirleri çıkar
             try:

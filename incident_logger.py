@@ -152,7 +152,7 @@ def _build_incident_with_hash(event: dict, analysis: str, prev_hash: str, triage
     prev_hash: zincirdeki bir önceki incident'ın hash'i (bellekten gelir)
     """
     incident = {
-        "schema_version": "2.0",
+        "schema_version": "2.1",
         "incident_id": str(uuid.uuid4()),
         "timestamp": datetime.now(timezone.utc).isoformat(),
         "pipeline_trace": {
@@ -177,6 +177,7 @@ def _build_incident_with_hash(event: dict, analysis: str, prev_hash: str, triage
             "successes": event.get("successes", "-"),
         },
         "ai_analysis": analysis,
+        "enrichment": event.get("_enrichment", {"ioc": {}, "ai": {}, "asset": {}}),
         "hash": "",
     }
 
