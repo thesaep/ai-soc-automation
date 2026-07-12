@@ -295,6 +295,14 @@ Each event gets a 0–100 score with a breakdown (severity, technique weight, of
 ![Kill-Chain](screenshots/kill_chain.png)
 Events on the same user/host are linked into a campaign and analyzed by Claude as a single intrusion (e.g. `Execution → Persistence → Defense Evasion → Command and Control`).
 
+### Semantic Retrieval — Case Memory (L3)
+![Semantic Retrieval](screenshots/l3_semantic_retrieval.png)
+For every new event, the local ChromaDB store surfaces the nearest past cases by MITRE technique, tactic, and risk — injected into Claude's prompt as precedent. Matches are graded HIGH / MEDIUM / LOW instead of a raw distance, so the AI reasons with historical context rather than a blank slate.
+
+### Semantic Index — Representative Selection
+![L3 Index Build](screenshots/l3_index_build.png)
+The raw log carried ~45× redundancy (one technique alone dominated with hundreds of near-identical rows). The index unit is the unique `(technique_id, user, host)` pattern — collapsing 1,300+ raw records into a handful of representative cases, so the vector space holds signal, not copies.
+
 ### Hash-Chain Incident Log
 ![Hash-Chain](screenshots/hash_chain.png)
 Each incident is chained to the previous one via SHA-256. Tampering with any record breaks the chain.
@@ -338,9 +346,20 @@ Repeated MONITOR verdicts on the same user/host accumulate; 3+ adds +15, lifting
 ![Throttling](screenshots/throttling.png)
 On a second consecutive run, events already processed in the last 5 minutes are skipped — the continuously-running pipeline stops re-analyzing persistent telemetry.
 
+### Knowledge Base — Scope-Aware Exceptions
+![Knowledge Base](screenshots/knowledge_base_scope.png)
+Analyst-curated exceptions carry a scope: `infrastructure` (legitimate everywhere, e.g. a VPN range) or `detection` (legitimate only for the listed techniques, e.g. a signed updater for one persistence key). Added in one line via the `kb_add.py` CLI.
+
+### Scope Enforcement — No Silent Widening
+![Scope Test](screenshots/knowledge_base_scope_test.png)
+A `detection`-scoped exception never widens beyond its techniques. The Tailscale range (`infrastructure`) is legitimate under any technique; the OneDrive updater (`detection`, T1547.001) is trusted for that persistence key but **still flagged if it shows up doing process injection (T1055)** — a narrow allowance can't quietly become a bypass primitive.
+
 ### The "C2" False Positive — Detected, Then Resolved
-![Tailscale C2](screenshots/tailscale_c2_fp.png)
-Claude first flagged the analyst's own Tailscale tunnel (a RunOnce persistence key) as attacker C2 — technically correct, contextually wrong. With the Tailscale range registered in the knowledge base as `infrastructure` scope, the same event is now correctly downgraded to a verified false positive.
+![Tailscale C2 Problem](screenshots/tailscale_c2_fp.png)
+Claude first flagged the analyst's own Tailscale tunnel (a RunOnce persistence key) as attacker C2 — technically correct, contextually wrong.
+
+![Tailscale C2 Resolved](screenshots/tailscale_c2_resolved.png)
+With the Tailscale range registered in the knowledge base as `infrastructure` scope, the same event is now resolved: IOC enrichment returns `known_legitimate` (`[KB]`), and Claude declares a **verified false positive**, downgrading HIGH → LOW and correctly identifying `100.64.0.0/10` as internal infrastructure rather than an external threat.
 
 ---
 
