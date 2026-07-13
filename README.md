@@ -507,7 +507,7 @@ ai-soc-automation/
 | Phase 2 | [From one rule to a MITRE ATT&CK detection engine](https://medium.com/@erensaylan/designing-an-ai-powered-soc-automation-platform-with-splunk-and-claude-ai-part-2-169c67e4181b) |
 | Phase 3 | [Reasoning trace, kill-chain correlation, cascading triage](https://medium.com/@erensaylan/designing-an-ai-powered-soc-automation-platform-with-splunk-and-claude-ai-part-3-99d3292e9dfc) |
 | Phase 4 | [Artifact-driven IOC enrichment, IOC-aware triage, trend-based escalation](https://medium.com/@erensaylan/designing-an-ai-powered-soc-automation-platform-with-splunk-and-claude-ai-part-4-ecaded2d5d69) |
-| Phase 5 | Semantic retrieval (L3), scope-aware knowledge base, and closing the "C2" false positive *(coming soon)* |
+| Phase 5 | [Semantic retrieval (L3), scope-aware knowledge base, and closing the "C2" false positive](https://medium.com/@erensaylan/designing-an-ai-powered-soc-automation-platform-with-splunk-and-claude-ai-part-5-cc2f331c92a5) |
 
 ---
 
