@@ -243,6 +243,23 @@ def _build_incident_with_hash(event: dict, analysis: str, prev_hash: str, triage
     return incident
 
 
+def _norm_event_time(value) -> str:
+    """Olayin KENDI zamanini karsilastirilabilir UTC-dakika anahtarina cevirir.
+
+    Idempotency anahtarinda zaman bileseni olmazsa "ayni olay tekrar cekildi" ile
+    "saatler sonra gerceklesen YENI saldiri" ayirt edilemez; ikincisi sessizce
+    atlanir (detection kaybi). Bos ise "" doner -> anahtar eski 3'lu davranisa
+    duser (muhafazakar: duplike yazmaz).
+    """
+    if not value:
+        return ""
+    from datetime import datetime as _d, timezone as _tz
+    try:
+        return _d.fromisoformat(str(value).replace("Z", "+00:00")).astimezone(_tz.utc).strftime("%Y-%m-%dT%H:%M")
+    except Exception:
+        return str(value)[:16]
+
+
 def log_incident_v2(events: list, ai_analyses: list, triage_scores: list = None) -> list:
     """
     Faz 4 incident logger.
@@ -282,13 +299,24 @@ def log_incident_v2(events: list, ai_analyses: list, triage_scores: list = None)
                 _logged_keys.add((
                     inc.get("mitre", {}).get("technique_name", ""),
                     inc.get("entity", {}).get("user", ""),
-                    inc.get("entity", {}).get("host", "")
+                    inc.get("entity", {}).get("host", ""),
+                    _norm_event_time(inc.get("pipeline_trace", {})
+                                        .get("triggered_fields", {})
+                                        .get("event_time", ""))
                 ))
         except:
             pass
     for i, inc in enumerate(existing_logs):
         try:
-            ts = datetime.fromisoformat(inc.get("timestamp","").replace("Z","+00:00"))
+            # Aggregation penceresi olayin KENDI zamanindan olculur (yazilma
+            # zamanindan degil): aksi halde saatler arayla gerceklesen iki ayri
+            # saldiri, ayni koşuda yazildiklari icin tek kayda toplanir.
+            _agg_et = _norm_event_time(inc.get("pipeline_trace", {})
+                                          .get("triggered_fields", {})
+                                          .get("event_time", ""))
+            ts = datetime.fromisoformat(
+                (_agg_et + ":00+00:00") if _agg_et and len(_agg_et) == 16
+                else inc.get("timestamp","").replace("Z","+00:00"))
             if _now - ts < _agg_window:
                 _agg_key = (
                     inc.get("mitre",{}).get("technique_name",""),
@@ -304,10 +332,11 @@ def log_incident_v2(events: list, ai_analyses: list, triage_scores: list = None)
             _ev_ikey = (
                 event.get("detection_type", ""),
                 event.get("user", ""),
-                event.get("host", "")
+                event.get("host", ""),
+                _norm_event_time(event.get("event_time", ""))
             )
             if _ev_ikey in _logged_keys:
-                print(f"  [~] SKIPPED (8h idempotency) | {_ev_ikey[0]} | {_ev_ikey[1]}")
+                print(f"  [~] SKIPPED (already logged) | {_ev_ikey[0]} | {_ev_ikey[1]} | et={_ev_ikey[3] or '-'}")
                 incident_ids.append(None)
                 _n_skipped += 1
                 continue
@@ -318,6 +347,14 @@ def log_incident_v2(events: list, ai_analyses: list, triage_scores: list = None)
                 event.get("user",""),
                 event.get("host","")
             )
+            _ev_et = _norm_event_time(event.get("event_time", ""))
+            if _ev_et:
+                from datetime import datetime as _d2
+                try:
+                    if _now - _d2.fromisoformat(_ev_et + ":00+00:00") >= _agg_window:
+                        _recent_keys.pop(_ev_key, None)   # olay penceresin disinda
+                except Exception:
+                    pass
             if _ev_key in _recent_keys:
                 _idx = _recent_keys[_ev_key]
                 existing_logs[_idx].setdefault("metrics", {})["count"] = existing_logs[_idx]["metrics"].get("count", 1) + 1
