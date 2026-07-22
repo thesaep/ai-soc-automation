@@ -364,10 +364,17 @@ if __name__ == "__main__":
             if monitor_events:
                 print(f"\n{'-'*65}")
                 print(f"  [MONITOR] {len(monitor_events)} events under monitoring")
+                # TREND = "bu desen ZAMAN ICINDE tekrar ediyor" sinyali.
+                # Ayni kosuda ayni desenden N olay gelmesi N tekrar DEGILDIR,
+                # tek bir gozlemdir; sayac kosu basina desen basina 1 artar.
+                # Aksi halde tek gurultulu kosu esigi (3x) aninda asar.
+                _trend_seen = set()
                 for ev in monitor_events:
                     # Key: (detection, host) — user boş olabilir, host sabit
                     _tk = f"{ev.get('detection_type','')}|{ev.get('host','-')}"
-                    _trend_store[_tk] = _trend_store.get(_tk, 0) + 1
+                    if _tk not in _trend_seen:
+                        _trend_seen.add(_tk)
+                        _trend_store[_tk] = _trend_store.get(_tk, 0) + 1
                     mc = _trend_store[_tk]
                     trend_str = f" ⚠ TREND ({mc}x MONITOR)" if mc >= 3 else f" ({mc}x)"
                     # AI'a trend context'i ver — eşik aşıldıysa event'e ekle

@@ -207,10 +207,10 @@ def format_chain_summary(chain: dict) -> str:
     lines = []
     lines.append(f"KILL-CHAIN: {chain['chain_id']}")
     lines.append(f"Hedef: {chain['entity']['user']} @ {chain['entity']['host']}")
-    lines.append(f"Olay sayısı: {chain['incident_count']} | Zincir riski: {chain['chain_risk']}")
+    lines.append(f"Event count: {chain['incident_count']} | Chain risk: {chain['chain_risk']}")
     lines.append(f"Zaman aralığı: {chain['time_span_minutes']} dakika")
     lines.append(f"Kill-chain aşamaları: {' -> '.join(chain['tactics'])}")
-    lines.append(f"Teknikler: {', '.join(chain['techniques'])}")
+    lines.append(f"Techniques: {', '.join(chain['techniques'])}")
     return "\n".join(lines)
 
 

@@ -449,17 +449,17 @@ RULES:
 
     rc = risk_color(chain_risk)
     print_header(
-        f"[CHAIN] KİLL-CHAIN ANALİZİ  |  {chain['entity']['user']} @ {chain['entity']['host']}  |  {chain_risk}",
+        f"[CHAIN] KILL-CHAIN ANALYSIS  |  {chain['entity']['user']} @ {chain['entity']['host']}  |  {chain_risk}",
         rc
     )
     print(f"\n{Colors.BOLD}{Colors.BLUE}  CHAIN DETAILS{Colors.RESET}")
     print_divider(Colors.BLUE)
-    print_field("Zincir ID     :", chain.get("chain_id", "-"))
-    print_field("Olay Sayısı   :", str(len(incidents)))
-    print_field("Zincir Riski  :", f"{rc}{chain_risk}{Colors.RESET}")
-    print_field("Zaman Aralığı :", f"{time_span} dakika")
+    print_field("Chain ID      :", chain.get("chain_id", "-"))
+    print_field("Event Count   :", str(len(incidents)))
+    print_field("Chain Risk    :", f"{rc}{chain_risk}{Colors.RESET}")
+    print_field("Time Span     :", f"{time_span} minutes")
     print_field("Kill-Chain    :", tactics_str)
-    print_field("Teknikler     :", techniques_str)
+    print_field("Techniques    :", techniques_str)
 
     try:
         message = client.messages.create(
