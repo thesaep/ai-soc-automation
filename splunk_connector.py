@@ -11,17 +11,47 @@ def connect_splunk():
     Splunk'a bağlantı kurar.
     8089 portu Splunk'un REST API portu, 8000 web arayüzünden farklı.
     """
+    _host = os.getenv("SPLUNK_HOST")
+    _port = int(os.getenv("SPLUNK_PORT"))
     try:
         service = client.connect(
-            host=os.getenv("SPLUNK_HOST"),
-            port=int(os.getenv("SPLUNK_PORT")),
+            host=_host,
+            port=_port,
             username=os.getenv("SPLUNK_USERNAME"),
             password=os.getenv("SPLUNK_PASSWORD")
         )
         print(f"[+] Splunk connection successful - version: {service.info['version']}")
         return service
     except Exception as e:
+        # Splunk Free: authentication devre disi, /services/auth/login KAPALI.
+        # splunklib once token almaya calistigi icin login asamasinda duser, ama
+        # REST API auth'suz erisilebilir durumdadir. Bu durumda token'siz Service
+        # ile baglaniyoruz. Enterprise/Dev lisansa donuldugunde ilk yol yeniden
+        # calisir - fallback sessizce devre disi kalir.
+        service = _connect_free(_host, _port)
+        if service:
+            return service
         print(f"[-] Splunk connection failed: {e}")
+        return None
+
+
+def _connect_free(host, port):
+    """Token'siz baglanti denemesi (Splunk Free)."""
+    try:
+        # token="" splunklib tarafindan "oturum yok" sayilir ve POST istekleri
+        # (jobs.oneshot) engellenir. autologin=False ile login endpoint'i hic
+        # cagrilmaz, kimlik bilgileri HTTP Basic olarak gonderilir - Free bunu
+        # kabul eder, Enterprise/Dev lisansta da gecerli kalir.
+        service = client.Service(
+            host=host, port=port, scheme="https",
+            username=os.getenv("SPLUNK_USERNAME"),
+            password=os.getenv("SPLUNK_PASSWORD"),
+            autologin=False,
+        )
+        v = service.info["version"]
+        print(f"[+] Splunk connection successful (free/no-auth) - version: {v}")
+        return service
+    except Exception:
         return None
 
 def load_query(query_file, threshold=5):
@@ -50,6 +80,22 @@ def _mv_last(value):
         return non_empty[-1] if non_empty else "-"
     return value if value not in ("", None) else "-"
 
+
+def _strip_domain(user):
+    """DOMAIN\\user -> user  |  user@domain -> user
+
+    Sysmon 'DESKTOP-VNEKQ7O\\Goktug' yazarken Security log sade 'Goktug' yazar.
+    Normalize edilmezse correlator._entity_key ayni kullanici icin iki farkli
+    anahtar uretir ve kill-chain zinciri ikiye bolunur.
+    """
+    if not isinstance(user, str) or user in ("", "-"):
+        return user
+    if "\\" in user:
+        user = user.split("\\")[-1]
+    if "@" in user:
+        user = user.split("@")[0]
+    return user or "-"
+
 def normalize_event(event):
     """
     Splunk'ın döndürdüğü farklı field adlarını ortak şemaya map eder.
@@ -59,7 +105,9 @@ def normalize_event(event):
     """
     # Ortak şema → bu field aday listesinden ilk dolu olanı alır
     field_map = {
-        "user": ["Account_Name", "TargetUserName", "Network_Account_Name", "SourceUser"],
+        # "User": Sysmon olaylarinin standart kullanici alani (EventCode 1/13 vb).
+        # Security log alanlari (Account_Name...) once denenir, Sysmon fallback olur.
+        "user": ["Account_Name", "TargetUserName", "Network_Account_Name", "SourceUser", "User"],
         "domain": ["Account_Domain", "domain", "TargetDomainName", "Network_Account_Domain"],
         "host":   ["ComputerName", "host"],
         "src_ip": ["Source_Network_Address", "src_ip", "IpAddress"],
@@ -73,7 +121,9 @@ def normalize_event(event):
         found = False
         for cand in candidates:
             if cand in event:
-                event[norm_key] = _mv_last(event[cand])
+                _val = _mv_last(event[cand])
+                # user alani: DOMAIN\\user -> user (correlator anahtar tutarliligi)
+                event[norm_key] = _strip_domain(_val) if norm_key == "user" else _val
                 found = True
                 break
         # Hiçbiri yoksa '-' ata (downstream kod KeyError almasın)
