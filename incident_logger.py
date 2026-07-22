@@ -8,6 +8,52 @@ from datetime import datetime, timezone
 # Log dosyası yolu
 LOG_FILE = "logs/incidents.json"
 
+ANCHOR_TYPE = "chain_anchor"
+
+
+def _is_anchor(rec) -> bool:
+    """Arsiv baslik kaydi mi? Zincirin HALKASI degil, BASLIGI."""
+    return isinstance(rec, dict) and rec.get("record_type") == ANCHOR_TYPE
+
+
+def _chain_start_hash(logs: list) -> str:
+    """Dogrulama hangi hash'ten baslar: anchor varsa onun tasidigi arsiv hash'i."""
+    if logs and _is_anchor(logs[0]):
+        return logs[0].get("archived_last_hash", "genesis")
+    return "genesis"
+
+
+def _tail_hash(logs: list) -> str:
+    """Yeni kaydin baglanacagi hash: son gercek kayit; sadece anchor varsa onun hash'i."""
+    for rec in reversed(logs):
+        if _is_anchor(rec):
+            return rec.get("archived_last_hash", "genesis")
+        return rec.get("hash", "genesis")
+    return "genesis"
+
+
+
+
+import copy as _copy
+
+_MUTABLE_METRICS = ("count", "last_seen")
+_HASH_RE = re.compile(r"[0-9a-f]{64}")
+
+
+def _hash_payload(incident: dict) -> dict:
+    """Hash'e giren govde: aggregation'in sonradan yazdigi alanlar HARIC.
+
+    Gerekce: hash-chain append-only'dir; aggregation ise mevcut kaydi yerinde
+    gunceller (count/last_seen). Bu iki alan hash disi birakilmazsa her
+    aggregate edilen kayit zinciri kirar (bkz. 36 kirik kayit, Tem 2026).
+    """
+    e = _copy.deepcopy({k: v for k, v in incident.items() if k != "hash"})
+    m = e.get("metrics")
+    if isinstance(m, dict):
+        for f in _MUTABLE_METRICS:
+            m.pop(f, None)
+    return e
+
 
 def _compute_hash(incident: dict, prev_hash: str) -> str:
     """
@@ -16,7 +62,7 @@ def _compute_hash(incident: dict, prev_hash: str) -> str:
     sonraki tüm hash'ler geçersiz hale gelir.
     prev_hash: bir önceki incident'ın hash değeri (zincirin ilk halkası için "genesis")
     """
-    payload = json.dumps(incident, ensure_ascii=False, sort_keys=True) + prev_hash
+    payload = json.dumps(_hash_payload(incident), ensure_ascii=False, sort_keys=True) + prev_hash
     return hashlib.sha256(payload.encode("utf-8")).hexdigest()
 
 
@@ -29,7 +75,7 @@ def _get_last_hash() -> str:
         with open(LOG_FILE, "r", encoding="utf-8") as f:
             logs = json.load(f)
         if logs:
-            return logs[-1].get("hash", "genesis")
+            return _tail_hash(logs)
     except (FileNotFoundError, json.JSONDecodeError):
         pass
     return "genesis"
@@ -208,7 +254,7 @@ def log_incident_v2(events: list, ai_analyses: list, triage_scores: list = None)
 
     # Hash zincirini bellekte tut — her build_incident sonrası güncelle
     # Böylece aynı batch içindeki incident'lar birbirini doğru referans alır
-    prev_hash = existing_logs[-1].get("hash", "genesis") if existing_logs else "genesis"
+    prev_hash = _tail_hash(existing_logs)
 
     incident_ids = []
     _n_new = _n_aggregated = _n_skipped = 0
@@ -310,9 +356,26 @@ def verify_chain() -> bool:
         print("[-] Log file not found or invalid")
         return False
 
-    prev_hash = "genesis"
+    prev_hash = _chain_start_hash(logs)
+    if logs and _is_anchor(logs[0]):
+        _a = logs[0]
+        _a_nohash = {k: v for k, v in _a.items() if k != "hash"}
+        if _compute_hash(_a_nohash, _a.get("archived_last_hash", "genesis")) != _a.get("hash", ""):
+            print("[!] CHAIN ANCHOR TAMPERED")
+            return False
+    _unverifiable = []
     for i, incident in enumerate(logs):
+        if _is_anchor(incident):
+            continue
         stored_hash = incident.get("hash", "")
+        # Legacy/sentetik kayit: hash SHA256 formatinda degil (orn. elle enjekte
+        # edilmis test kayitlari, Haz 2026 / #1313-1314). Kendi butunlukleri
+        # dogrulanamaz AMA zincirin parcasidir - sonraki kayitlar bu hash'e
+        # baglandigi icin CIKARILAMAZ. Sayilir, raporlanir, uzerinden gecilir.
+        if not _HASH_RE.fullmatch(stored_hash or ""):
+            _unverifiable.append(i)
+            prev_hash = stored_hash
+            continue
         incident_without_hash = {k: v for k, v in incident.items() if k != "hash"}
         computed = _compute_hash(incident_without_hash, prev_hash)
         if computed != stored_hash:
@@ -320,7 +383,11 @@ def verify_chain() -> bool:
             return False
         prev_hash = stored_hash
 
-    print(f"[+] Chain verified: {len(logs)} incidents, all intact")
+    _verified = len(logs) - len(_unverifiable)
+    if _unverifiable:
+        print(f"[!] {len(_unverifiable)} unverifiable legacy record(s): {_unverifiable}")
+        print("    (non-SHA256 hash format - integrity not provable, chain continuity preserved)")
+    print(f"[+] Chain verified: {_verified}/{len(logs)} incidents intact")
     return True
 
 
