@@ -380,7 +380,13 @@ if __name__ == "__main__":
                     # AI'a trend context'i ver — eşik aşıldıysa event'e ekle
                     if mc >= 3:
                         ev["_trend_info"] = f"This event has repeated {mc} times at MONITOR level and exceeded the trend threshold ({3}x), so it was escalated for analysis. Assess it in the context of a recurring pattern."
-                    print(f"  * {ev.get('detection_type','')[:40]:<40} | {ev.get('user','-')} | score:{ev.get('_triage',{}).get('score',0)}{trend_str}")
+                    # Ayni detection'dan birden fazla olay ayni satir gorunumune
+                    # duser (ornek: iki farkli tasklist cagrisi). Olay saati
+                    # ayirt edicidir ve idempotency anahtarinin da parcasidir,
+                    # yani ekranda gorulen deger sistemin kullandigi kriterle ayni.
+                    _et = str(ev.get('event_time', '') or '')
+                    _ets = f" | {_et[11:19]}" if len(_et) >= 19 else ""
+                    print(f"  * {ev.get('detection_type','')[:40]:<40} | {ev.get('user','-')} | score:{ev.get('_triage',{}).get('score',0)}{trend_str}{_ets}")
                 # Trend store'u kaydet
                 try:
                     with open(_TREND_FILE, "w") as _tf:
