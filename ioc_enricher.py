@@ -4,6 +4,7 @@ Artifact-driven: aynı IOC 1 kez sorgulanır (cache), N olaya bağlanabilir.
 Kaynaklar: AbuseIPDB + OTX AlienVault
 """
 
+import ipaddress
 import os
 import json
 import time
@@ -332,12 +333,19 @@ def extract_iocs_from_event(event: dict) -> list[dict]:
 
 
 def _is_private_ip(ip: str) -> bool:
-    """RFC1918 + loopback + link-local IP kontrolü."""
-    private_prefixes = (
-        "10.", "192.168.", "172.16.", "172.17.", "172.18.", "172.19.",
-        "172.2", "172.30.", "172.31.", "127.", "169.254.", "::1", "fe80:", "fc", "fd"
-    )
-    return any(ip.startswith(p) for p in private_prefixes)
+    """RFC1918 + loopback + link-local + IPv6 ULA kontrolu (ipaddress tabanli).
+
+    NOT: 100.64.0.0/10 (CGNAT / Tailscale) bilerek PRIVATE SAYILMAZ.
+    Faz 8.6 karari geregi Tailscale IP'leri gorunur kalir ve KB katmaninda
+    downgrade edilir (audit izi korunur).
+    """
+    try:
+        addr = ipaddress.ip_address(ip.strip())
+    except ValueError:
+        return False
+    if addr.version == 4 and addr in ipaddress.ip_network("100.64.0.0/10"):
+        return False
+    return addr.is_private or addr.is_loopback or addr.is_link_local
 
 
 def _is_internal_domain(domain: str) -> bool:

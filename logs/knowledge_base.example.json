@@ -1,0 +1,36 @@
+[
+  {
+    "kb_id": "00000000-0000-0000-0000-000000000001",
+    "kb_type": "legitimate_tool",
+    "indicator": "100.",
+    "indicator_type": "ip_prefix",
+    "reason": "Tailscale VPN CGNAT range (100.64.0.0/10) - internal test infrastructure",
+    "techniques": ["T1078", "T1550.002"],
+    "added_by": "analyst",
+    "created_at": "2026-01-01T00:00:00+00:00",
+    "updated_at": "2026-01-01T00:00:00+00:00",
+    "scope": "infrastructure"
+  },
+  {
+    "kb_id": "00000000-0000-0000-0000-000000000002",
+    "kb_type": "legitimate_tool",
+    "indicator": "OneDriveSetup.exe",
+    "indicator_type": "process",
+    "reason": "Microsoft OneDrive update routine - writes RunOnce keys",
+    "techniques": ["T1547.001"],
+    "added_by": "analyst",
+    "created_at": "2026-01-01T00:00:00+00:00",
+    "updated_at": "2026-01-01T00:00:00+00:00",
+    "scope": "detection"
+  },
+  {
+    "kb_id": "00000000-0000-0000-0000-000000000003",
+    "kb_type": "closed_case",
+    "incident_id": "EXAMPLE-0001",
+    "pattern": "whoami.exe executed by helpdesk account during business hours",
+    "resolution": "false_positive - routine IT support activity, no follow-on discovery",
+    "techniques": ["T1033"],
+    "added_by": "analyst",
+    "created_at": "2026-01-01T00:00:00+00:00"
+  }
+]

@@ -1,5 +1,6 @@
 .env
-logs/
+logs/*
+!logs/knowledge_base.example.json
 __pycache__/
 *.pyc
 

@@ -361,10 +361,6 @@ Claude first flagged the analyst's own Tailscale tunnel (a RunOnce persistence k
 ![Tailscale C2 Resolved](screenshots/tailscale_c2_resolved.png)
 With the Tailscale range registered in the knowledge base as `infrastructure` scope, the same event is now resolved: IOC enrichment returns `known_legitimate` (`[KB]`), and Claude declares a **verified false positive**, downgrading HIGH → LOW and correctly identifying `100.64.0.0/10` as internal infrastructure rather than an external threat.
 
----
-
-## Installation
-
 **1. Clone & install dependencies**
 
 ```bash
@@ -399,6 +395,21 @@ cp .env.example .env
 
 
 > Never commit `.env`. It is gitignored. Only `.env.example` (with placeholders) is tracked.
+
+**Bootstrap the Knowledge Base (recommended)**
+
+```bash
+cp logs/knowledge_base.example.json logs/knowledge_base.json
+```
+
+`logs/` is gitignored, so a fresh clone starts with an empty Knowledge Base. Without it the AI layer has no ground truth about your own infrastructure and will flag legitimate tooling (VPN tunnels, update agents) as malicious. The example file ships with two `legitimate_tool` entries and one `closed_case` entry showing both scopes:
+
+| `scope` | Applies to | Use for |
+|---------|-----------|---------|
+| `infrastructure` | All techniques (global) | Your own IP ranges, VPN/CGNAT prefixes |
+| `detection` | Only techniques listed in `techniques[]` | Behavioural exceptions tied to one technique |
+
+Edit the entries to match your environment, or add your own with `python3 kb_add.py --scope infrastructure ...`.
 
 **3. Deploy Splunk field extraction**
 
