@@ -401,5 +401,61 @@ def verify_chain() -> bool:
     return True
 
 
+def verify_archive(archive_dir: str = "logs/archive") -> bool:
+    """Arsiv segmentlerini + aktif dosyaya baglanan halkayi dogrular.
+
+    verify_chain() sadece aktif dosyaya bakar. Arsiv dogrulanmazsa "tasindi ve
+    unutuldu" olur; tamper-evident iddiasi orada kopar. Bu fonksiyon her
+    segmenti genesis'ten yurur ve son hash'in aktif dosyadaki anchor'in
+    archived_last_hash'i ile ESLESTIGINI dogrular.
+    """
+    import glob as _glob
+    files = sorted(_glob.glob(os.path.join(archive_dir, "incidents_*.json")))
+    if not files:
+        print("[*] No archive segments found")
+        return True
+
+    prev_hash, total, unver = "genesis", 0, 0
+    for path in files:
+        try:
+            with open(path, "r", encoding="utf-8") as f:
+                recs = json.load(f)
+        except (FileNotFoundError, json.JSONDecodeError):
+            print(f"[-] Unreadable archive: {path}")
+            return False
+        for i, rec in enumerate(recs):
+            if _is_anchor(rec):
+                continue
+            stored = rec.get("hash", "")
+            if not _HASH_RE.fullmatch(stored or ""):
+                unver += 1
+                prev_hash = stored
+                continue
+            if _compute_hash(rec, prev_hash) != stored:
+                print(f"[-] Archive broken! {os.path.basename(path)} #{i} "
+                      f"| ID: {rec.get('incident_id','?')[:8]}...")
+                return False
+            prev_hash = stored
+        total += len(recs)
+        print(f"[+] {os.path.basename(path):45s} {len(recs):5d} records")
+
+    try:
+        with open(LOG_FILE, "r", encoding="utf-8") as f:
+            active = json.load(f)
+    except (FileNotFoundError, json.JSONDecodeError):
+        active = []
+    if active and _is_anchor(active[0]):
+        linked = active[0].get("archived_last_hash", "")
+        if linked != prev_hash:
+            print(f"[-] ANCHOR LINK MISMATCH: anchor={linked[:16]}... archive_tail={prev_hash[:16]}...")
+            return False
+        print("[+] Anchor link verified (archive tail -> active chain)")
+
+    if unver:
+        print(f"[!] {unver} unverifiable legacy record(s) in archive")
+    print(f"[+] Archive verified: {total - unver}/{total} records intact")
+    return True
+
+
 if __name__ == "__main__":
     verify_chain()
