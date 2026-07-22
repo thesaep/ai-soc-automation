@@ -69,6 +69,9 @@ def load_query(query_file, threshold=5):
         print(f"[-] Query file not found: {query_file}")
         return None
 
+_INVALID_VALUES = ("", "-", None, "NOT_TRANSLATED", "N/A", "NULL")
+
+
 def _mv_last(value):
     """
     Splunk bazı field'ları çok-değerli (list) döndürür (örn. Account_Name).
@@ -76,9 +79,12 @@ def _mv_last(value):
     List değilse değeri olduğu gibi döndürür, boşsa '-' verir.
     """
     if isinstance(value, list):
-        non_empty = [v for v in value if v not in ("", "-", None, "NOT_TRANSLATED")]
+        non_empty = [v for v in value if v not in _INVALID_VALUES]
         return non_empty[-1] if non_empty else "-"
-    return value if value not in ("", None) else "-"
+    # Tekil deger de ayni filtreden gecmeli: Splunk cok-degerli alani tek deger
+    # dondurdugunde ('NOT_TRANSLATED' gibi) eski kod bunu gecirip entity alanina
+    # yaziyordu. Iki kol ayni sabiti kullanir, tutarsizlik olusamaz.
+    return value if value not in _INVALID_VALUES else "-"
 
 
 def _strip_domain(user):
