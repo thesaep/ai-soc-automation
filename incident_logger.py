@@ -16,6 +16,16 @@ def _is_anchor(rec) -> bool:
     return isinstance(rec, dict) and rec.get("record_type") == ANCHOR_TYPE
 
 
+def strip_anchors(records: list) -> list:
+    """Arsiv baslik kayitlarini eler.
+
+    incidents.json'i okuyan HER tuketici bunu kullanmali: anchor bir vaka DEGIL,
+    zincir basligidir. Filtrelenmezse korelator sahte ("-","-") grubu uretir,
+    trend sayaci yanlis sayar, retriever onu vaka sanip indeksler.
+    """
+    return [r for r in records if not _is_anchor(r)]
+
+
 def _chain_start_hash(logs: list) -> str:
     """Dogrulama hangi hash'ten baslar: anchor varsa onun tasidigi arsiv hash'i."""
     if logs and _is_anchor(logs[0]):

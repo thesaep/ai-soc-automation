@@ -1,3 +1,4 @@
+from incident_logger import strip_anchors
 import re
 import smtplib
 import json
@@ -154,7 +155,7 @@ if __name__ == "__main__":
             # Korelasyon için önce mevcut incident geçmişini yükle (zincir üyeliği skoru etkiler)
             try:
                 with open("logs/incidents.json", "r", encoding="utf-8") as f:
-                    history = json.load(f)
+                    history = strip_anchors(json.load(f))
             except Exception:
                 history = []
             prelim_chains = correlate_incidents(history + all_events, time_window_minutes=60)
@@ -178,7 +179,7 @@ if __name__ == "__main__":
             _monitor_counts = {}
             try:
                 with open("logs/incidents.json", "r", encoding="utf-8") as _f:
-                    _all_inc = _json.load(_f)
+                    _all_inc = strip_anchors(_json.load(_f))
                 from datetime import datetime as _dt, timezone as _tz, timedelta as _td
                 _cutoff = (_dt.now(_tz.utc) - _td(days=7)).isoformat()
                 for _inc in _all_inc:
@@ -323,7 +324,7 @@ if __name__ == "__main__":
             # Faz 5: Korelasyon — güncel incident geçmişiyle zincirleri çıkar
             try:
                 with open("logs/incidents.json", "r", encoding="utf-8") as f:
-                    all_incidents = json.load(f)
+                    all_incidents = strip_anchors(json.load(f))
             except Exception:
                 all_incidents = []
             # Korelasyon için sadece son 7 günün incident'larını kullan — performans optimizasyonu

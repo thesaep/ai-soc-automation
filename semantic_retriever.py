@@ -3,19 +3,38 @@ L3 Semantic Retrieval — Faz 8
 incidents.json'daki vakaları unique desen bazında ChromaDB'ye indeksler + retrieval.
 Embedder: ChromaDB default (all-MiniLM-L6-v2, lokal/offline, 384 boyut).
 """
+import glob
+from incident_logger import strip_anchors
 import json
 import chromadb
 
-INCIDENTS_PATH = "logs/incidents.json"   # kaynak vaka logu (hash-chain)
+INCIDENTS_PATH = "logs/incidents.json"
+ARCHIVE_GLOB   = "logs/archive/incidents_*.json"   # arsivlenmis segmentler   # kaynak vaka logu (hash-chain)
 CHROMA_PATH    = "chroma_db"             # ChromaDB kalıcı depo dizini (git-ignored)
 COLLECTION     = "soc_cases"             # koleksiyon adı
 MIN_AI_LEN     = 40                      # bu uzunluk altı ai_analysis çöp sayılır, indekslenmez
 
 
 def load_incidents(path=INCIDENTS_PATH):
-    # incidents.json bir JSON array → tümünü oku ve liste döndür
-    with open(path) as f:
-        return json.load(f)
+    """Aktif + arsivlenmis vakalari birlikte dondurur.
+
+    Arsivleme bir DEPOLAMA islemidir, retrieval'a gorunmez olmalidir. Arsiv
+    okunmazsa dosya donduren her arsivleme AI'in gecmis vaka hafizasini
+    sessizce siler. Anchor kayitlari vaka degildir, elenir.
+    """
+    records = []
+    for ap in sorted(glob.glob(ARCHIVE_GLOB)):
+        try:
+            with open(ap, encoding="utf-8") as f:
+                records.extend(json.load(f))
+        except Exception:
+            pass
+    try:
+        with open(path, encoding="utf-8") as f:
+            records.extend(json.load(f))
+    except FileNotFoundError:
+        pass
+    return strip_anchors(records)
 
 
 def _is_english(ai_text):
