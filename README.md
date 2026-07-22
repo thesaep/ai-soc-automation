@@ -361,6 +361,8 @@ Claude first flagged the analyst's own Tailscale tunnel (a RunOnce persistence k
 ![Tailscale C2 Resolved](screenshots/tailscale_c2_resolved.png)
 With the Tailscale range registered in the knowledge base as `infrastructure` scope, the same event is now resolved: IOC enrichment returns `known_legitimate` (`[KB]`), and Claude declares a **verified false positive**, downgrading HIGH → LOW and correctly identifying `100.64.0.0/10` as internal infrastructure rather than an external threat.
 
+---
+
 **1. Clone & install dependencies**
 
 ```bash
