@@ -1,4 +1,5 @@
 from incident_logger import strip_anchors
+from retro_hunt import retro_hunt
 import re
 import smtplib
 import json
@@ -315,6 +316,28 @@ if __name__ == "__main__":
                             "sources":    art.get("enrichment", {}).get("sources", []),
                             "tags":       art.get("enrichment", {}).get("tags", []),
                         }
+                        # Faz 9: Retro-hunt — enrichment malicious/suspicious verdiyse
+                        # bu IOC gecmiste BASKA host'larda da gorundu mu? known_legitimate
+                        # (Tailscale gibi) ve dusuk riskli gostergeler taranmaz (gurultu).
+                        _v = ev["_enrichment"]["ioc"][ioc_val].get("verdict")
+                        _it = art.get("ioc_type")
+                        if _v in ("malicious", "suspicious") and _it:
+                            try:
+                                _retro = retro_hunt(_it, ioc_val, earliest="-90d", service=service)
+                                if _retro.get("host_count", 0) >= 1:
+                                    ev["_enrichment"]["ioc"][ioc_val]["retro"] = {
+                                        "host_count": _retro["host_count"],
+                                        "total_hits": _retro["total_hits"],
+                                        "matches": _retro["matches"],
+                                    }
+                                    if _retro["host_count"] > 1:
+                                        print(f"    [RETRO] {ioc_val} ({_v}) -> {_retro['host_count']} host, "
+                                              f"{_retro['total_hits']} hit [YAYILIM]")
+                                    else:
+                                        print(f"    [RETRO] {ioc_val} ({_v}) -> tek host, "
+                                              f"{_retro['total_hits']} hit")
+                            except Exception as _e:
+                                print(f"    [RETRO] hata: {_e}")
             incident_ids = log_incident_v2(combined_events, combined_analyses, triage_scores=combined_scores)
             # Faz 7: inc_id'yi artifact'a geri yaz (pivot için)
             for ev, inc_id in zip(escalate_events, incident_ids[:len(escalate_events)]):
