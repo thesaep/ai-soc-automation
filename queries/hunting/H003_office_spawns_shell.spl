@@ -1,0 +1,3 @@
+source="WinEventLog:Microsoft-Windows-Sysmon/Operational" EventCode=1 (ParentImage="*\\winword.exe" OR ParentImage="*\\excel.exe" OR ParentImage="*\\powerpnt.exe" OR ParentImage="*\\outlook.exe") (Image="*\\powershell.exe" OR Image="*\\cmd.exe" OR Image="*\\wscript.exe" OR Image="*\\cscript.exe" OR Image="*\\mshta.exe" OR Image="*\\rundll32.exe")
+| dedup ParentImage Image CommandLine ComputerName
+| table _time,ParentImage,Image,CommandLine,User,ComputerName

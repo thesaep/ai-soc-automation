@@ -1,0 +1,3 @@
+source="WinEventLog:Microsoft-Windows-Sysmon/Operational" EventCode=1 (OriginalFileName="PowerShell.EXE" OR Image="*\\powershell.exe" OR Image="*\\pwsh.exe") (CommandLine="*-enc *" OR CommandLine="*-EncodedCommand*" OR CommandLine="*-e *" OR CommandLine="*FromBase64String*" OR CommandLine="*-w hidden*" OR CommandLine="*-windowstyle hidden*") NOT User="NT AUTHORITY\\SYSTEM" NOT ParentImage="*\\splunk*"
+| dedup CommandLine User ComputerName
+| table _time,Image,CommandLine,ParentImage,User,ComputerName

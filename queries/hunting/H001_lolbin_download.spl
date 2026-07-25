@@ -1,0 +1,3 @@
+source="WinEventLog:Microsoft-Windows-Sysmon/Operational" EventCode=1 (OriginalFileName="CertUtil.exe" OR OriginalFileName="bitsadmin.exe" OR Image="*\\certutil.exe" OR Image="*\\bitsadmin.exe") (CommandLine="*-urlcache*" OR CommandLine="*/transfer*" OR CommandLine="*http*" OR CommandLine="*ftp*") NOT User="NT AUTHORITY\\SYSTEM" NOT ParentImage="*\\splunk*"
+| dedup CommandLine User ComputerName
+| table _time,Image,OriginalFileName,CommandLine,ParentImage,User,ComputerName
