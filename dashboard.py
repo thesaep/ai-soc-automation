@@ -55,6 +55,16 @@ def _host(r, mask: bool) -> str:
     return MASK_MAP.get(h, h) if mask else h
 
 
+def _mask_entity(user: str, host: str, mask: bool) -> str:
+    """user@host string'i maskele. user icindeki host adini da (DOMAIN\\user) temizle."""
+    h = MASK_MAP.get(host, host) if mask else host
+    u = user
+    if mask:
+        for real, fake in MASK_MAP.items():
+            u = u.replace(real, fake)
+    return f"{u}@{h}"
+
+
 def _ts(r) -> str:
     return r.get("timestamp", "")
 
@@ -204,6 +214,40 @@ def main():
     df_r = pd.DataFrame(rows)
     st.dataframe(df_r, use_container_width=True, hide_index=True,
                  column_config={"Severity": st.column_config.TextColumn(width="small")})
+
+    st.divider()
+
+    # ── PANEL: Aktif Case'ler (Faz 9.5) ─────────────────────────────
+    # case_panel
+    st.subheader("🗂️ Sorusturma Case'leri")
+    try:
+        from case_manager import list_cases
+        cases = list_cases()
+    except Exception:
+        cases = []
+    if not cases:
+        st.caption("Henuz Case yok — pipeline kill-chain uretince olusur")
+    else:
+        oc1, oc2, oc3 = st.columns(3)
+        oc1.metric("Toplam Case", len(cases))
+        oc2.metric("CRITICAL/HIGH", sum(1 for c in cases if c.get("chain_risk") in ("CRITICAL", "HIGH")))
+        oc3.metric("Multi-stage", sum(1 for c in cases if c.get("is_multistage")))
+        case_rows = []
+        for c in cases[:25]:
+            ent = c.get("entity", {})
+            case_rows.append({
+                "Case UID": c.get("correlation_uid", "-"),
+                "Entity": _mask_entity(ent.get("user", "-"), ent.get("host", "-"), mask),
+                "Risk": c.get("chain_risk", "-"),
+                "Incident": c.get("incident_count", 0),
+                "Teknik": ", ".join(c.get("techniques", [])[:4]),
+                "Kill-Chain": " -> ".join(c.get("tactics", [])[:4]),
+                "Retro": len(c.get("retro_hunts", [])),
+                "Status": c.get("status", "-"),
+            })
+        st.dataframe(pd.DataFrame(case_rows), use_container_width=True, hide_index=True)
+        st.caption("Correlation UID deterministik (ayni zincir hep ayni Case) · "
+                   "durum degistirme + not ekleme Faz 11'de")
 
     st.divider()
 

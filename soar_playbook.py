@@ -1,5 +1,6 @@
 from incident_logger import strip_anchors
 from retro_hunt import retro_hunt
+from case_manager import upsert_case
 import re
 import smtplib
 import json
@@ -300,6 +301,7 @@ if __name__ == "__main__":
             combined_scores = triage["scores"]
             # Faz 7 + 8.5: Artifact enrichment — log'dan ÖNCE, _enrichment["ioc"] dolsun
             print(f"\n  [ARTIFACT] IOC enrichment starting ({len(escalate_events)} ESCALATE events)...")
+            _retro_cache = {}  # Faz 9.5 perf: ayni IOC bir kosuda bir kez retro-hunt
             for ev in escalate_events:
                 # inc_id henüz yok — None ile çalış (seen_count + IOC pivot güncellenir)
                 artifacts = process_event_artifacts(ev, None)
@@ -323,7 +325,15 @@ if __name__ == "__main__":
                         _it = art.get("ioc_type")
                         if _v in ("malicious", "suspicious") and _it:
                             try:
-                                _retro = retro_hunt(_it, ioc_val, earliest="-90d", service=service)
+                                # Kosu-ici cache: ayni IOC iki olayda gecerse tek sorgu.
+                                # Pencere -30d (yayilimin cogu bu araliktadir; -90d her
+                                # cagrida arsiv buckets'i tariyordu, ~5s/sorgu).
+                                _ck = f"{_it}:{ioc_val}"
+                                if _ck in _retro_cache:
+                                    _retro = _retro_cache[_ck]
+                                else:
+                                    _retro = retro_hunt(_it, ioc_val, earliest="-30d", service=service)
+                                    _retro_cache[_ck] = _retro
                                 if _retro.get("host_count", 0) >= 1:
                                     ev["_enrichment"]["ioc"][ioc_val]["retro"] = {
                                         "host_count": _retro["host_count"],
@@ -370,10 +380,21 @@ if __name__ == "__main__":
                 tactics = " -> ".join(chain["tactics"])
                 chain_ids = {inc.get("incident_id") for inc in chain.get("incidents", [])}
                 has_new = bool(chain_ids & new_ids)
+                _chain_ai = None
                 if has_new and (chain["is_multistage"] or chain["chain_risk"] == "CRITICAL"):
-                    analyze_chain_with_claude(chain)
+                    _chain_ai = analyze_chain_with_claude(chain, return_result=True)
                 elif has_new:
                     print(f"\n  {risk_icon} {chain['chain_risk']:<8} {chain['chain_id']} | {chain['incident_count']} events | {tactics}")
+                # Faz 9.5: zinciri kalici Case'e cevir (idempotent — deterministik UID).
+                # Her zincir icin cagrilir; ayni zincir kosudan kosuya ayni Case'e duser,
+                # cogalmaz. AI analizi varsa Case'e baglanir.
+                try:
+                    _case = upsert_case(chain, ai_analysis=(_chain_ai if isinstance(_chain_ai, str) else None))
+                    if has_new:
+                        print(f"       [CASE] {_case['correlation_uid']} "
+                              f"({_case['incident_count']} incident, seen x{_case['seen_count']})")
+                except Exception as _ce:
+                    print(f"       [CASE] hata: {_ce}")
 
             # MONITOR olayları için TREND uyarısı — ayrı dosyadan bağımsız sayaç
             import json as _tj
