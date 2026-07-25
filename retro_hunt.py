@@ -25,6 +25,60 @@ _IOC_FIELDS = {
 }
 
 
+class _C:
+    """Terminal renkleri (ai_analyzer/soar_playbook ile ayni ANSI seti)."""
+    RED = "\033[91m"; YEL = "\033[93m"; GRN = "\033[92m"
+    CYA = "\033[96m"; BOLD = "\033[1m"; RST = "\033[0m"
+
+
+def _mitre_context(ioc_type: str, value: str) -> dict:
+    """IOC'nin gecmiste hangi MITRE teknikleriyle iliskili oldugunu bulur.
+
+    Retro-hunt ham Splunk verisini tarar (teknik bilgisi yok); teknik eslesmesi
+    incidents.json'da. IP entity.src_ip'de, hash/domain _enrichment veya
+    triggered_fields'te aranir. Arsiv+aktif birlikte okunur.
+    """
+    try:
+        from semantic_retriever import load_incidents
+        recs = load_incidents()
+    except Exception:
+        return {"techniques": [], "incident_count": 0}
+    techs = {}
+    for r in recs:
+        hit = False
+        if ioc_type == "ip" and r.get("entity", {}).get("src_ip") == value:
+            hit = True
+        elif value in str(r.get("_enrichment", {})):
+            hit = True
+        elif value in str(r.get("pipeline_trace", {}).get("triggered_fields", {})):
+            hit = True
+        if hit:
+            m = r.get("mitre", {})
+            tid = m.get("technique_id", "?")
+            techs.setdefault(tid, {"name": m.get("technique_name", tid), "count": 0})
+            techs[tid]["count"] += 1
+    ordered = sorted(techs.items(), key=lambda kv: -kv[1]["count"])
+    return {
+        "techniques": [{"id": t, "name": d["name"], "count": d["count"]} for t, d in ordered],
+        "incident_count": sum(d["count"] for _, d in ordered),
+    }
+
+
+def _duration(first: str, last: str) -> str:
+    """Iki UTC zaman string'i arasindaki sureyi okunur formatta dondurur."""
+    try:
+        f = dt.datetime.strptime(first, "%Y-%m-%d %H:%M:%S")
+        l = dt.datetime.strptime(last, "%Y-%m-%d %H:%M:%S")
+        secs = (l - f).total_seconds()
+        if secs < 60:   return f"{int(secs)}sn"
+        if secs < 3600: return f"{int(secs//60)}dk"
+        if secs < 86400: return f"{secs/3600:.1f}sa"
+        return f"{secs/86400:.1f} gun"
+    except (ValueError, TypeError):
+        return "-"
+
+
+
 def _build_spl(ioc_type: str, value: str, earliest: str) -> str:
     """IOC tipine gore alan-hedefli SPL kurar.
 
@@ -67,6 +121,7 @@ def retro_hunt(ioc_type: str, value: str, earliest: str = "-90d", service=None) 
                 "last_seen": _fmt(r.get("last_seen")),
                 "sourcetypes": st if isinstance(st, list) else [st],
             })
+    _mitre = _mitre_context(ioc_type, value)
     return {
         "ioc_type": ioc_type,
         "value": value,
@@ -74,6 +129,7 @@ def retro_hunt(ioc_type: str, value: str, earliest: str = "-90d", service=None) 
         "host_count": len(matches),
         "total_hits": sum(m["hits"] for m in matches),
         "matches": matches,
+        "mitre": _mitre,
     }
 
 
@@ -113,7 +169,35 @@ if __name__ == "__main__":
         if not res["matches"]:
             print(f"  [+] Temiz: {res['window']} penceresinde hic gorulmedi")
             continue
-        print(f"  [!] {res['host_count']} host, toplam {res['total_hits']} olay:")
+        # Yayilim siddeti gostergesi
+        hc = res["host_count"]
+        if hc > 2:
+            sev = f"{_C.RED}{_C.BOLD}[SPREAD]{_C.RST} {_C.RED}{hc} host'a yayilmis{_C.RST}"
+        elif hc == 2:
+            sev = f"{_C.YEL}[SPREAD]{_C.RST} {_C.YEL}2 host{_C.RST}"
+        else:
+            sev = f"{_C.GRN}[SINGLE]{_C.RST} tek host"
+        print(f"  {sev}  |  toplam {_C.BOLD}{res['total_hits']}{_C.RST} olay")
+        print(f"  {'-'*56}")
         for m in res["matches"]:
-            print(f"    {m['host']:20s} | {m['hits']:4d} hit | {m['first_seen']} -> {m['last_seen']}")
-            print(f"    {'':20s} | kaynak: {', '.join(m['sourcetypes'])}")
+            dur = _duration(m["first_seen"], m["last_seen"])
+            # hit yogunlugu: gun basina ortalama
+            try:
+                days = max((dt.datetime.strptime(m["last_seen"], "%Y-%m-%d %H:%M:%S")
+                            - dt.datetime.strptime(m["first_seen"], "%Y-%m-%d %H:%M:%S")).total_seconds()/86400, 1)
+                rate = f"~{m['hits']/days:.0f}/gun"
+            except Exception:
+                rate = "-"
+            print(f"  {_C.CYA}{m['host']:22s}{_C.RST} {m['hits']:>6d} hit  ({rate}, {dur} aktif)")
+            print(f"  {'':22s} {m['first_seen']} -> {m['last_seen']}")
+            print(f"  {'':22s} kaynak: {', '.join(m['sourcetypes'])}")
+        # MITRE teknik baglami
+        mitre = res.get("mitre", {})
+        if mitre.get("techniques"):
+            print(f"  {'-'*56}")
+            print(f"  {_C.BOLD}MITRE baglami{_C.RST} ({mitre['incident_count']} incident'ta gorulmus):")
+            for t in mitre["techniques"][:6]:
+                print(f"    {_C.YEL}{t['id']:12s}{_C.RST} {t['name'][:36]:36s} x{t['count']}")
+        else:
+            print(f"  {'-'*56}")
+            print(f"  MITRE baglami: bu IOC hic incident'a bagli degil (sadece ham veride)")
