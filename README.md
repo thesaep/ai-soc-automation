@@ -330,7 +330,7 @@ A selection is in [`screenshots/`](screenshots/): the SOAR pipeline and cascadin
 | 3 | [Reasoning trace, kill-chain correlation, cascading triage](https://medium.com/@erensaylan/designing-an-ai-powered-soc-automation-platform-with-splunk-and-claude-ai-part-3-99d3292e9dfc) |
 | 4 | [Artifact-driven IOC enrichment, IOC-aware triage, trend escalation](https://medium.com/@erensaylan/designing-an-ai-powered-soc-automation-platform-with-splunk-and-claude-ai-part-4-ecaded2d5d69) |
 | 5 | [Semantic retrieval (L3), knowledge base, closing the "C2" false positive](https://medium.com/@erensaylan/designing-an-ai-powered-soc-automation-platform-with-splunk-and-claude-ai-part-5-cc2f331c92a5) |
-| 6 | *IOC retro-hunting, hunt library, investigation Cases, tamper-evident archival, dashboard* (coming soon) |
+| 6 | [IOC retro-hunting, hunt library, investigation Cases, tamper-evident archival, dashboard](https://erensaylan.medium.com/designing-an-ai-powered-soc-automation-platform-with-splunk-and-claude-ai-part-6-583163f7c42d) |
 
 ---
 
