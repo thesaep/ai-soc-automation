@@ -317,7 +317,7 @@ ai-soc-automation/
 
 ## Screenshots
 
-A selection is in [`screenshots/`](screenshots/): the SOAR pipeline and cascading triage, kill-chain correlation, semantic retrieval, the tamper-evident hash-chain, IOC enrichment and verdict-driven escalation, the scope-aware knowledge base resolving the Tailscale "C2" false positive, and the Phase 6 additions — the monitoring dashboard with its live chain-integrity check, retro-hunt spread analysis, static hunts, and investigation Cases. Dashboard screenshots use the built-in host-masking toggle.
+A selection is in [`screenshots/`](screenshots/): the SOAR pipeline and cascading triage, kill-chain correlation, semantic retrieval, the tamper-evident hash-chain, IOC enrichment and verdict-driven escalation, the scope-aware knowledge base resolving the Tailscale "C2" false positive, the monitoring dashboard with its live chain-integrity check, retro-hunt spread analysis, static hunts, and investigation Cases. Dashboard screenshots use the built-in host-masking toggle.
 
 ---
 
