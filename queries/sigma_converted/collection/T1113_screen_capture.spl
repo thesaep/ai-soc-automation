@@ -1,0 +1,2 @@
+sourcetype="WinEventLog:Microsoft-Windows-PowerShell/Operational" EventCode=4104 (Message="*CopyFromScreen*" OR (Message="*Drawing.Bitmap*" Message="*FromImage*") OR (Message="*System.Windows.Forms*" Message="*SendKeys*" Message="*PrtSc*")) | dedup Message host
+| table _time,host,ComputerName,User,Message

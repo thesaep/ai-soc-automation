@@ -349,7 +349,9 @@ def get_all_mitre_events(service, earliest="-5m"):
         ("T1048 Web Exfiltration (POST/Upload)",
          "queries/sigma_converted/exfiltration/T1048_web_exfil.spl", "MEDIUM"),
         ("T1560.001 Archive Collection for Exfil",
-         "queries/sigma_converted/collection/T1560_001_archive_collection.spl", "MEDIUM"),	
+         "queries/sigma_converted/collection/T1560_001_archive_collection.spl", "MEDIUM"),
+        ("T1113 Screen Capture (PowerShell)",
+         "queries/sigma_converted/collection/T1113_screen_capture.spl", "HIGH"),	
     ]
 
     all_events = []
