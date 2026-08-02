@@ -343,7 +343,11 @@ def get_all_mitre_events(service, earliest="-5m"):
         ("T1021.002 SMB Admin Share",
          "queries/sigma_converted/lateral_movement/T1021_002_smb_admin_share.spl", "HIGH"),
         ("T1021.006 WinRM Remote Execution",
-         "queries/sigma_converted/lateral_movement/T1021_006_winrm.spl", "HIGH"),	
+         "queries/sigma_converted/lateral_movement/T1021_006_winrm.spl", "HIGH"),
+        ("T1048.003 DNS Exfiltration",
+         "queries/sigma_converted/exfiltration/T1048_003_dns_exfil.spl", "MEDIUM"),
+        ("T1048 Web Exfiltration (POST/Upload)",
+         "queries/sigma_converted/exfiltration/T1048_web_exfil.spl", "MEDIUM"),	
     ]
 
     all_events = []

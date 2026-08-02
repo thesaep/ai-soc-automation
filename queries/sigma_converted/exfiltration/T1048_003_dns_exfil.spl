@@ -1,0 +1,3 @@
+source="WinEventLog:Microsoft-Windows-Sysmon/Operational" EventCode=1 (Image="*\\nslookup.exe" OR OriginalFileName="nslookup.exe" OR CommandLine="*nslookup*") (CommandLine="*==*" OR CommandLine="*.exfil.*" OR CommandLine="*.tunnel.*") NOT ParentImage="*\\splunk*" | eval qlen=len(CommandLine) | where qlen > 60
+| dedup Image CommandLine User ComputerName
+| table Image,CommandLine,qlen,User,ParentImage,ProcessId,ComputerName

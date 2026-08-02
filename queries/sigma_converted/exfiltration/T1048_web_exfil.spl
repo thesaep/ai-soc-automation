@@ -1,0 +1,2 @@
+source="WinEventLog:Microsoft-Windows-Sysmon/Operational" EventCode=1 (Image="*\\curl.exe" OR OriginalFileName="curl.exe" OR CommandLine="*Invoke-WebRequest*" OR CommandLine="*Invoke-RestMethod*" OR CommandLine="*wget*") (CommandLine="*-X POST*" OR CommandLine="*--data*" OR CommandLine="* -d *" OR CommandLine="*-T *" OR CommandLine="*--upload-file*" OR CommandLine="*-Method Post*" OR CommandLine="*-InFile*") NOT ParentImage="*\\splunk*" | dedup Image CommandLine User ComputerName
+| table Image,CommandLine,User,ParentImage,ProcessId,ComputerName
