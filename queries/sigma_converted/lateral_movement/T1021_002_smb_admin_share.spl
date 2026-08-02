@@ -1,0 +1,2 @@
+source="WinEventLog:Microsoft-Windows-Sysmon/Operational" EventCode=1 (Image="*\\net.exe" OR Image="*\\net1.exe" OR OriginalFileName="net.exe" OR OriginalFileName="net1.exe" OR CommandLine="*net use*") CommandLine="*use*" (CommandLine="*C$*" OR CommandLine="*ADMIN$*" OR CommandLine="*IPC$*") NOT ParentImage="*\\splunk*" | dedup Image CommandLine User ComputerName
+| table Image,OriginalFileName,CommandLine,User,ParentImage,ProcessId,ComputerName
