@@ -1,0 +1,2 @@
+source="WinEventLog:Microsoft-Windows-Sysmon/Operational" EventCode=1 ((CommandLine="*create*" CommandLine="*shadow*" CommandLine="*/for*") OR (CommandLine="*shadowcopy*" CommandLine="*create*") OR (CommandLine="*Win32_ShadowCopy*" CommandLine="*create*") OR (CommandLine="*vssadmin*" CommandLine="*create*" CommandLine="*shadow*")) NOT ParentImage="*\\splunk*" | dedup Image CommandLine User ComputerName
+| table Image,CommandLine,User,ParentImage,ProcessId,ComputerName

@@ -315,6 +315,8 @@ def get_all_mitre_events(service, earliest="-5m"):
          "queries/sigma_converted/credential_access/T1003_lsass_dump.spl", "HIGH"),
         ("T1003.002 SAM Registry Hive Dump",
          "queries/sigma_converted/credential_access/T1003_002_sam_dump.spl", "HIGH"),
+        ("T1003.002 VSS Shadow Copy Creation",
+         "queries/sigma_converted/credential_access/T1003_002_vss_shadow.spl", "HIGH"),
         ("T1136.001 Create Local Account",
          "queries/sigma_converted/persistence/T1136_local_account.spl", "HIGH"),
         ("T1098 Account Manipulation",
