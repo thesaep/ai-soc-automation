@@ -341,7 +341,9 @@ def get_all_mitre_events(service, earliest="-5m"):
         ("T1021.001 RDP Lateral Movement",
          "queries/sigma_converted/lateral_movement/T1021_rdp.spl", "HIGH"),
         ("T1021.002 SMB Admin Share",
-         "queries/sigma_converted/lateral_movement/T1021_002_smb_admin_share.spl", "HIGH"),	
+         "queries/sigma_converted/lateral_movement/T1021_002_smb_admin_share.spl", "HIGH"),
+        ("T1021.006 WinRM Remote Execution",
+         "queries/sigma_converted/lateral_movement/T1021_006_winrm.spl", "HIGH"),	
     ]
 
     all_events = []

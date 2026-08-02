@@ -1,0 +1,2 @@
+source="WinEventLog:Microsoft-Windows-Sysmon/Operational" EventCode=1 (ParentImage="*\\wsmprovhost.exe" OR Image="*\\winrs.exe" OR (Image="*\\wsmprovhost.exe" CommandLine="*-Embedding*")) NOT (Image="*\\conhost.exe" OR Image="*\\wsmprovhost.exe" ParentImage="*\\wsmprovhost.exe") NOT ParentImage="*\\splunk*" | dedup Image ParentImage CommandLine User ComputerName
+| table Image,ParentImage,CommandLine,User,ProcessId,ComputerName
