@@ -319,6 +319,8 @@ def get_all_mitre_events(service, earliest="-5m"):
          "queries/sigma_converted/credential_access/T1003_002_vss_shadow.spl", "HIGH"),
         ("T1003.002 Esentutl Hive Copy",
          "queries/sigma_converted/credential_access/T1003_002_esentutl_copy.spl", "HIGH"),
+        ("T1552.001 Credentials In Files (findstr)",
+         "queries/sigma_converted/credential_access/T1552_001_password_hunt.spl", "MEDIUM"),
         ("T1136.001 Create Local Account",
          "queries/sigma_converted/persistence/T1136_local_account.spl", "HIGH"),
         ("T1098 Account Manipulation",
