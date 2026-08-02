@@ -1,0 +1,2 @@
+source="WinEventLog:Microsoft-Windows-Sysmon/Operational" EventCode=1 (Image="*\\esentutl.exe" OR OriginalFileName="esentutl.exe" OR CommandLine="*esentutl*") (CommandLine="*/y*" OR CommandLine="*/vss*") (CommandLine="*\\SAM*" OR CommandLine="*\\SYSTEM*" OR CommandLine="*\\SECURITY*" OR CommandLine="*ntds*" OR CommandLine="*config\\*" OR CommandLine="*/vss*") NOT ParentImage="*\\splunk*" | dedup Image CommandLine User ComputerName
+| table Image,OriginalFileName,CommandLine,User,ParentImage,ProcessId,ComputerName
